@@ -9,7 +9,7 @@
 
 <div class="poster">
   {#if src && !failed}
-    <img {src} {alt} width="250" height="370" onerror={() => (failed = true)} />
+    <img {src} {alt} width="250" height="370" referrerpolicy="no-referrer" onerror={() => (failed = true)} />
   {:else}
     <div class="placeholder" role="img" aria-label="No poster available">🎬</div>
   {/if}
