@@ -1,0 +1,80 @@
+<script lang="ts">
+  import Progress from '../components/Progress.svelte'
+  import { MAX_TIMER, MIN_TIMER, settings, type Content } from '../lib/settings.svelte'
+  import { INTERNET_ENABLED } from '../lib/config'
+  import { dataStore } from '../lib/store.svelte'
+
+  const contents: { id: Content; label: string }[] = [
+    { id: 'movie', label: 'Movies' },
+    { id: 'tv', label: 'TV shows' },
+    { id: 'both', label: 'Both' },
+  ]
+</script>
+
+<h1>Settings</h1>
+
+<section>
+  <span class="label" id="content-label">What to guess</span>
+  <div class="choices" role="radiogroup" aria-labelledby="content-label">
+    {#each contents as c (c.id)}
+      <label class="choice">
+        <input type="radio" name="content" value={c.id} checked={settings.content === c.id} onchange={() => settings.setContent(c.id)} />
+        {c.label}
+      </label>
+    {/each}
+  </div>
+  <small>Applies to both games, from the next round.</small>
+</section>
+
+<section>
+  <label for="timer">Guess the title: timer per title (seconds)</label>
+  <input
+    id="timer"
+    type="number"
+    min={MIN_TIMER}
+    max={MAX_TIMER}
+    value={settings.timerSeconds}
+    onchange={(e) => settings.setTimer(e.currentTarget.valueAsNumber)}
+  />
+  <small>Between {MIN_TIMER} and {MAX_TIMER}. Applies from the next round.</small>
+</section>
+
+<section>
+  <label for="movie-timer">Guess the poster: time to reveal the poster (seconds)</label>
+  <input
+    id="movie-timer"
+    type="number"
+    min={MIN_TIMER}
+    max={MAX_TIMER}
+    value={settings.movieTimerSeconds}
+    onchange={(e) => settings.setMovieTimer(e.currentTarget.valueAsNumber)}
+  />
+  <small>Between {MIN_TIMER} and {MAX_TIMER}. Applies from the next round.</small>
+</section>
+
+{#if INTERNET_ENABLED}
+<section>
+  <h2>Internet titles</h2>
+  <button onclick={() => dataStore.refresh()} disabled={dataStore.busy !== null}>
+    {dataStore.busy === 'refreshing' ? 'Fetching…' : 'Fetch new titles'}
+  </button>
+  {#if dataStore.busy}
+    <Progress progress={dataStore.progress} />
+  {/if}
+  {#if dataStore.error}
+    <p class="error" role="alert">
+      {dataStore.error}.{dataStore.count > 0 ? ' Your current titles were kept.' : ''}
+    </p>
+  {/if}
+</section>
+{/if}
+
+<style>
+  section { margin-block: 1.5rem; display: grid; gap: 0.6rem; justify-items: start; }
+  input[type='number'] { width: 6rem; }
+  .label { font-weight: 600; }
+  .choices { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .choice { display: flex; align-items: center; gap: 0.4rem; }
+  small { color: var(--muted); }
+  .error { color: var(--danger); }
+</style>

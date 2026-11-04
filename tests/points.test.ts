@@ -1,0 +1,30 @@
+import { describe, expect, it } from 'vitest'
+import { bandAt, blurAt, pointsAt, pointsForBand } from '../src/lib/games/points'
+
+describe('points', () => {
+  it('is worth 100 in the first tenth and 10 in the last', () => {
+    expect(pointsAt(0)).toBe(100)
+    expect(pointsAt(0.099)).toBe(100)
+    expect(pointsAt(0.1)).toBe(90)
+    expect(pointsAt(0.95)).toBe(10)
+    expect(pointsAt(1)).toBe(10)
+  })
+  it('clamps out-of-range values', () => {
+    expect(bandAt(-1)).toBe(0)
+    expect(bandAt(2)).toBe(9)
+    expect(bandAt(NaN)).toBe(0)
+  })
+  it('lists 100 down to 10', () => {
+    expect(Array.from({ length: 10 }, (_, i) => pointsForBand(i))).toEqual([100, 90, 80, 70, 60, 50, 40, 30, 20, 10])
+  })
+})
+
+describe('blur', () => {
+  it('goes from 100 (blurry) to 10 (clear)', () => {
+    expect(blurAt(0)).toBe(100)
+    expect(blurAt(1)).toBe(10)
+    expect(blurAt(0.5)).toBe(55)
+    expect(blurAt(NaN)).toBe(100)
+    expect(blurAt(2)).toBe(10)
+  })
+})
