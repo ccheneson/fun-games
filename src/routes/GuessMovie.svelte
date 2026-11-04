@@ -2,6 +2,7 @@
   import { onDestroy, tick } from 'svelte'
   import ContentPicker from '../components/ContentPicker.svelte'
   import { shuffle } from '../lib/db/seed'
+  import { focusGuess } from '../lib/focus'
   import { BANDS, bandAt, blurAt, blurPx, pointsAt, pointsForBand } from '../lib/games/points'
   import type { Title } from '../lib/providers/types'
   import { settings } from '../lib/settings.svelte'
@@ -32,6 +33,7 @@
   /** Who is guessing right now (two-player mode only). */
   let active = $state<number | null>(null)
   let inputEl = $state<HTMLInputElement>()
+  let posterEl = $state<HTMLElement>()
   let nextEl = $state<HTMLButtonElement>()
 
   let queue: Title[] = []
@@ -64,9 +66,9 @@
     }
   })
 
-  // Keep the keyboard on the guess box: whenever a round is running (new title, box enabled).
+  // Focus the guess box on desktop (on mobile the poster, so the keyboard stays closed): whenever a round is running (new title, box enabled).
   $effect(() => {
-    if (canGuess && current && inputEl) inputEl.focus()
+    if (canGuess && current && inputEl) focusGuess(inputEl, posterEl)
   })
 
   function preload(url: string): Promise<boolean> {
@@ -109,7 +111,7 @@
       () => finish('timeout'),
     )
     await tick()
-    inputEl?.focus()
+    focusGuess(inputEl, posterEl)
   }
 
   async function finish(result: 'found' | 'timeout') {
@@ -241,7 +243,7 @@
   {/if}
 
   <div class="stage">
-    <div class="poster" role="img" aria-label={phase === 'playing' || phase === 'loading' ? 'Poster being revealed' : 'Poster of ' + current.title}>
+    <div class="poster" role="img" tabindex="-1" bind:this={posterEl} aria-label={phase === 'playing' || phase === 'loading' ? 'Poster being revealed' : 'Poster of ' + current.title}>
       {#if current.posterUrl && phase !== 'loading'}
         <img
           src={current.posterUrl}
@@ -332,6 +334,7 @@
     margin: 0 auto 1rem;
     align-items: stretch;
   }
+  .poster:focus { outline: none; }
   .poster {
     position: relative;
     aspect-ratio: 2 / 3;

@@ -4,6 +4,7 @@
   import Poster from '../components/Poster.svelte'
   import Progress from '../components/Progress.svelte'
   import { shuffle } from '../lib/db/seed'
+  import { focusGuess } from '../lib/focus'
   import type { Title } from '../lib/providers/types'
   import { settings } from '../lib/settings.svelte'
   import { dataStore } from '../lib/store.svelte'
@@ -24,6 +25,7 @@
   let wrong = $state(false)
   let score = $state({ found: 0, played: 0 })
   let inputEl = $state<HTMLInputElement>()
+  let titleEl = $state<HTMLElement>()
   let nextEl = $state<HTMLButtonElement>()
 
   let queue: Title[] = []
@@ -49,9 +51,9 @@
     }
   })
 
-  // Keep the keyboard on the guess box: whenever a round is running (new title, box enabled).
+  // Focus the guess box on desktop (on mobile the title area, so the keyboard stays closed): whenever a round is running (new title, box enabled).
   $effect(() => {
-    if (phase === 'playing' && current && inputEl) inputEl.focus()
+    if (phase === 'playing' && current && inputEl) focusGuess(inputEl, titleEl)
   })
 
   function clearPoster() {
@@ -84,7 +86,7 @@
       () => reveal('timeout'),
     )
     await tick()
-    inputEl?.focus()
+    focusGuess(inputEl, titleEl)
   }
 
   async function reveal(result: 'found' | 'timeout') {
@@ -156,7 +158,7 @@
     <span>{Math.ceil(remaining / 1000)}s</span>
   </div>
 
-  <p class="title" aria-label="Masked title">
+  <p class="title" aria-label="Masked title" tabindex="-1" bind:this={titleEl}>
     {phase === 'playing' ? masked : current.title}
   </p>
 
@@ -217,6 +219,7 @@
   .fill { position: absolute; inset: 0 auto 0 0; background: var(--accent); }
   .fill.low { background: var(--danger); }
   .timer span { position: relative; display: block; text-align: center; line-height: 28px; font-weight: 600; }
+  .title:focus { outline: none; }
   .title {
     font-size: clamp(1.6rem, 6vw, 2.6rem);
     font-weight: 700;
