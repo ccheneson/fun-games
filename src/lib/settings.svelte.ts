@@ -15,10 +15,13 @@ function clampTimer(n: number): number {
 
 function load(): { timerSeconds: number; movieTimerSeconds: number; source: SourceId; content: Content } {
   try {
-    const raw = JSON.parse(localStorage.getItem(KEY) ?? '{}')
+    const parsed: unknown = JSON.parse(localStorage.getItem(KEY) ?? '{}')
+    // Stored data is untrusted: anything that isn't a plain object is ignored.
+    const raw: Record<string, unknown> =
+      parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {}
     return {
-      timerSeconds: clampTimer(raw.timerSeconds ?? DEFAULT_TIMER),
-      movieTimerSeconds: clampTimer(raw.movieTimerSeconds ?? DEFAULT_TIMER),
+      timerSeconds: clampTimer(Number(raw.timerSeconds ?? DEFAULT_TIMER)),
+      movieTimerSeconds: clampTimer(Number(raw.movieTimerSeconds ?? DEFAULT_TIMER)),
       source: INTERNET_ENABLED && raw.source === 'internet' ? 'internet' : 'imdb',
       content: raw.content === 'movie' || raw.content === 'tv' ? raw.content : 'both',
     }

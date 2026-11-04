@@ -246,6 +246,7 @@
         <img
           src={current.posterUrl}
           alt=""
+          referrerpolicy="no-referrer"
           style:filter={blur > 0 ? `blur(${blur}px)` : 'none'}
           style:clip-path={direction === 'down'
             ? `inset(0 0 ${100 - revealPct}% 0)`
