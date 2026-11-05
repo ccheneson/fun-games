@@ -10,10 +10,11 @@ import type { CountryData } from '../src/lib/countries/types'
 // built with what was found. Only what makes the game playable is enforced (a round has 5 places, so at least 8 cities
 // leaves room for markers that must not overlap); anything below the targets is reported, not failed.
 const MIN_CITIES = 8
-const TARGETS = { cities: 30, sites: 50, rivers: 30 }
+const TARGETS = { cities: 30, sites: 50, rivers: 30, foods: 30 }
 // Rivers are optional: the free map data has few rivers for some countries (e.g. Japan), and the game
 // then simply offers cities and sites. Any river the map has must come with a name and a fact.
-const COASTAL_SLACK = 8 // map units (~15 km): the outline is simplified, coastal places sit on it
+const COASTAL_SLACK = 8 // map units (~15 km on a large country): the outline is simplified, coastal places sit on it
+const COASTAL_SLACK_KM = 3 // on a tiny island 8 units is only ~1 km, less than the free outline's accuracy: also allow 3 km
 
 describe.each(COUNTRIES.map((c) => [c.meta.id, c] as const))('country %s', (_id, entry) => {
   let country: CountryData
@@ -29,7 +30,8 @@ describe.each(COUNTRIES.map((c) => [c.meta.id, c] as const))('country %s', (_id,
     for (const [key, value] of Object.entries(s)) {
       if (typeof value === 'string') expect(value.trim(), key).not.toBe('')
     }
-    for (const [key, value] of Object.entries(s.kindLabels)) expect(value.trim(), key).not.toBe('')
+    for (const group of [s.kindLabels, s.kindNames, s.legend]) for (const [key, value] of Object.entries(group)) expect(value.trim(), key).not.toBe('')
+    expect(s.title).toContain('{kinds}')
     expect(s.aboutSource).toContain('{link}')
     expect(s.title).not.toContain('{country}')
     expect(s.mapLabel).not.toContain('{country}')
@@ -38,12 +40,12 @@ describe.each(COUNTRIES.map((c) => [c.meta.id, c] as const))('country %s', (_id,
   })
 
   it('has no leftover TODO from the scaffold, and translated texts when the language is not English', () => {
-    expect(JSON.stringify([country.name, country.cities, country.sites, country.rivers, country.strings, entry.meta])).not.toMatch(/TODO/)
-    if (country.lang !== 'en') expect(country.strings.lead, 'strings still in English').not.toBe(makeStrings('en', country.name).lead)
+    expect(JSON.stringify([country.name, country.cities, country.sites, country.foods, country.rivers, country.strings, entry.meta])).not.toMatch(/TODO/)
+    if (country.lang !== 'en') expect(country.strings.hint, 'strings still in English').not.toBe(makeStrings('en', country.name).hint)
   })
 
   it('reports where it falls short of the targets (a warning, not a failure)', () => {
-    const counts = { cities: country.cities.length, sites: country.sites.length, rivers: country.map.rivers.length }
+    const counts = { cities: country.cities.length, sites: country.sites.length, rivers: country.map.rivers.length, foods: (country.foods ?? []).length }
     for (const [kind, target] of Object.entries(TARGETS) as [keyof typeof TARGETS, number][])
       if (counts[kind] < target) console.warn(`[${country.id}] ${counts[kind]} ${kind} (target ${target})`)
   })
@@ -60,6 +62,13 @@ describe.each(COUNTRIES.map((c) => [c.meta.id, c] as const))('country %s', (_id,
     for (const s of country.sites) expect(s.fact.trim().length, s.name).toBeGreaterThan(20)
   })
 
+  it('has distinct food specialties, one per place, each with a fact (any number, even none)', () => {
+    const foods = country.foods ?? []
+    expect(new Set(foods.map((f) => f.name)).size).toBe(foods.length)
+    expect(new Set(foods.map((f) => f.place)).size, 'two specialties share a place').toBe(foods.length)
+    for (const f of foods) expect(f.fact.trim().length, f.name).toBeGreaterThan(20)
+  })
+
   it('has a name and a fact for every river of the map, and none for rivers it does not have', () => {
     const ids = country.map.rivers.map((r) => r.id)
     expect(new Set(ids).size).toBe(ids.length)
@@ -73,11 +82,12 @@ describe.each(COUNTRIES.map((c) => [c.meta.id, c] as const))('country %s', (_id,
   it('puts every city and site on the country (catches swapped or wrong coordinates)', () => {
     const project = projector(country.map)
     const rings = pathRings(country.map.outline)
+    const slack = Math.max(COASTAL_SLACK, (COASTAL_SLACK_KM * country.map.scale) / 111.19)
     const onCountry = (lat: number, lon: number) => {
       const p = project(lat, lon)
-      return rings.some((r) => inRing(p, r) || distanceToRing(p, r) <= COASTAL_SLACK)
+      return rings.some((r) => inRing(p, r) || distanceToRing(p, r) <= slack)
     }
-    for (const c of [...country.cities, ...country.sites]) expect(onCountry(c.lat, c.lon), `${c.name} (${c.lat}, ${c.lon})`).toBe(true)
+    for (const c of [...country.cities, ...country.sites, ...(country.foods ?? [])]) expect(onCountry(c.lat, c.lon), `${c.name} (${c.lat}, ${c.lon})`).toBe(true)
   })
 
   it('keeps cities apart from each other so their dots do not overlap', () => {

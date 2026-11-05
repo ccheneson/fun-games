@@ -10,6 +10,12 @@ export interface Site extends City {
   city: string
 }
 
+/** A culinary specialty, placed where it comes from (one specialty per town, to keep the map readable). */
+export interface Food extends City {
+  /** The town or area it is tied to. */
+  place: string
+}
+
 export interface RiverShape {
   id: string
   /** Where the marker number / name label sits (map units). */
@@ -40,14 +46,26 @@ export interface RiverInfo {
 
 /** Every piece of text the game shows. `{country}`, `{n}`, `{round}`, `{score}`, `{link}` are filled in at runtime. */
 export interface Strings {
+  /** Contains `{country}` and `{kinds}` (the kinds the country has, e.g. "villes et monuments"). */
   title: string
+  /** One short line (it must fit on a phone): what to do. */
   lead: string
   scoreLine: string
   hint: string
+  /** Shown under a specialty's name once placed; contains `{place}`. */
+  originLabel: string
+  /** Shown under a landmark's name once placed; contains `{place}` (the town it stands in). */
+  siteOriginLabel: string
   nextRound: string
   mapLabel: string
   namesLabel: string
-  kindLabels: { city: string; site: string; river: string }
+  kindLabels: { city: string; site: string; river: string; food: string }
+  /** Plural names, used in the title and the map description. */
+  kindNames: { city: string; site: string; river: string; food: string }
+  /** One very short phrase per kind: its marker symbol and name, e.g. "● ville" (●, ◆, ▬, ■ are the shapes on the map). */
+  legend: { city: string; site: string; river: string; food: string }
+  /** The word before the last item of a list ("et" / "and"). */
+  listAnd: string
   aboutTitle: string
   aboutText: string
   /** Contains `{link}`, replaced by a link to Natural Earth. */
@@ -63,6 +81,8 @@ export interface CountryContent {
   lang: string
   cities: City[]
   sites: Site[]
+  /** Culinary specialties tied to a place (optional: a country may have none). */
+  foods?: Food[]
   /** Name and fact for every river of the generated map, by river id. */
   rivers: Record<string, RiverInfo>
   strings: Strings

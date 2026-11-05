@@ -4,14 +4,16 @@ import { shuffle } from '../db/seed'
 
 export const ROUND_SIZE = 5
 
-export type PlaceKind = 'city' | 'site' | 'river'
+export type PlaceKind = 'city' | 'site' | 'river' | 'food'
 
-/** Something to place on the map: a city or a famous site (a marker), or a river (a highlighted course). */
+/** Something to place on the map: a city, a famous site or a culinary specialty (a marker), or a river (a highlighted course). */
 export interface PlaceDef extends Point {
   id: string
   kind: PlaceKind
   name: string
   fact: string
+  /** Specialties and landmarks: the town it comes from / stands in. */
+  origin?: string
   /** Rivers only: the course, in map units. `x`/`y` is then where the label goes. */
   lines?: Line[]
 }
@@ -30,7 +32,8 @@ export function buildPlaces(country: CountryData): PlaceDef[] {
   })
   return [
     ...country.cities.map((c): PlaceDef => ({ id: 'city:' + c.name, kind: 'city', name: c.name, fact: c.fact, ...project(c.lat, c.lon) })),
-    ...country.sites.map((s): PlaceDef => ({ id: 'site:' + s.name, kind: 'site', name: s.name, fact: s.fact, ...project(s.lat, s.lon) })),
+    ...country.sites.map((s): PlaceDef => ({ id: 'site:' + s.name, kind: 'site', name: s.name, fact: s.fact, origin: s.city, ...project(s.lat, s.lon) })),
+    ...(country.foods ?? []).map((f): PlaceDef => ({ id: 'food:' + f.name, kind: 'food', name: f.name, fact: f.fact, origin: f.place, ...project(f.lat, f.lon) })),
     ...rivers,
   ]
 }
@@ -60,28 +63,34 @@ export function conflicts(a: PlaceDef, b: PlaceDef): boolean {
 }
 
 /**
- * How many rivers and famous sites a round has; the rest are cities (always at least one).
- * Rivers and sites come in 2s or 3s, never alone, and not every round has them.
+ * How many rivers, famous sites and specialties a round has; the rest are cities (always at least one).
+ * Each comes in 2s or 3s, never alone, and not every round has them.
  */
 export interface RoundMix {
   rivers: number
   sites: number
+  foods: number
 }
 
 export const ROUND_MIXES: readonly RoundMix[] = [
-  { rivers: 0, sites: 0 },
-  { rivers: 2, sites: 0 },
-  { rivers: 3, sites: 0 },
-  { rivers: 0, sites: 2 },
-  { rivers: 0, sites: 3 },
-  { rivers: 2, sites: 2 },
+  { rivers: 0, sites: 0, foods: 0 },
+  { rivers: 2, sites: 0, foods: 0 },
+  { rivers: 3, sites: 0, foods: 0 },
+  { rivers: 0, sites: 2, foods: 0 },
+  { rivers: 0, sites: 3, foods: 0 },
+  { rivers: 2, sites: 2, foods: 0 },
+  { rivers: 0, sites: 0, foods: 2 },
+  { rivers: 0, sites: 0, foods: 3 },
+  { rivers: 2, sites: 0, foods: 2 },
+  { rivers: 0, sites: 2, foods: 2 },
 ]
 
 /** The mixes a pool can serve (a small country may have too few rivers or sites for some of them). */
 export function availableMixes(pool: PlaceDef[], n = ROUND_SIZE): readonly RoundMix[] {
   const rivers = pool.filter((p) => p.kind === 'river').length
   const sites = pool.filter((p) => p.kind === 'site').length
-  return ROUND_MIXES.filter((m) => m.rivers <= rivers && m.sites <= sites && m.rivers + m.sites < n)
+  const foods = pool.filter((p) => p.kind === 'food').length
+  return ROUND_MIXES.filter((m) => m.rivers <= rivers && m.sites <= sites && m.foods <= foods && m.rivers + m.sites + m.foods < n)
 }
 
 export function pickMix(random: () => number = Math.random, mixes: readonly RoundMix[] = ROUND_MIXES): RoundMix {
@@ -112,10 +121,12 @@ export function pickRound(seen: Set<string>, pool: PlaceDef[], n = ROUND_SIZE, m
 
   const rivers = Math.min(mix.rivers, n)
   const sites = Math.min(mix.sites, n - rivers)
+  const foods = Math.min(mix.foods, n - rivers - sites)
   const wanted: PlaceKind[] = [
     ...Array<PlaceKind>(rivers).fill('river'),
     ...Array<PlaceKind>(sites).fill('site'),
-    ...Array<PlaceKind>(n - rivers - sites).fill('city'),
+    ...Array<PlaceKind>(foods).fill('food'),
+    ...Array<PlaceKind>(n - rivers - sites - foods).fill('city'),
   ]
   for (const kind of wanted) pickOne(kind)
   // Last resort (tiny pools only): fill up with whatever is left, conflicts or not.

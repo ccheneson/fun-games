@@ -73,11 +73,12 @@ describe('rounds', () => {
     expect(new Set(picked.map((c) => c.id)).size).toBe(ROUND_SIZE)
   })
 
-  it('only mixes rivers and sites by 2 or 3, and always keeps at least one city', () => {
+  it('only mixes rivers, sites and foods by 2 or 3, and always keeps at least one city', () => {
     for (const m of ROUND_MIXES) {
       expect([0, 2, 3]).toContain(m.rivers)
       expect([0, 2, 3]).toContain(m.sites)
-      expect(m.rivers + m.sites).toBeLessThan(ROUND_SIZE)
+      expect([0, 2, 3]).toContain(m.foods)
+      expect(m.rivers + m.sites + m.foods).toBeLessThan(ROUND_SIZE)
     }
   })
 
@@ -87,14 +88,14 @@ describe('rounds', () => {
     for (let i = 0; i < 400; i++) {
       const r = pickRound(seen, PLACES)
       expect(r).toHaveLength(ROUND_SIZE)
-      mixes.add(`${count(r, 'river')}/${count(r, 'site')}`)
+      mixes.add(`${count(r, 'river')}/${count(r, 'site')}/${count(r, 'food')}`)
     }
-    expect([...mixes].sort()).toEqual(['0/0', '0/2', '0/3', '2/0', '2/2', '3/0'])
+    expect([...mixes].sort()).toEqual(['0/0/0', '0/0/2', '0/0/3', '0/2/0', '0/2/2', '0/3/0', '2/0/0', '2/0/2', '2/2/0', '3/0/0'])
   })
 
   it('picks the mix from the injected random source', () => {
-    expect(pickMix(() => 0)).toEqual({ rivers: 0, sites: 0 })
-    expect(pickMix(() => 0.99)).toEqual({ rivers: 2, sites: 2 })
+    expect(pickMix(() => 0)).toEqual({ rivers: 0, sites: 0, foods: 0 })
+    expect(pickMix(() => 0.99)).toEqual({ rivers: 0, sites: 2, foods: 2 })
   })
 
   it('fills the round as the mix asks, with cities for the rest', () => {
@@ -102,7 +103,8 @@ describe('rounds', () => {
       const round = pickRound(new Set(), PLACES, ROUND_SIZE, mix)
       expect(count(round, 'river')).toBe(mix.rivers)
       expect(count(round, 'site')).toBe(mix.sites)
-      expect(count(round, 'city')).toBe(ROUND_SIZE - mix.rivers - mix.sites)
+      expect(count(round, 'food')).toBe(mix.foods)
+      expect(count(round, 'city')).toBe(ROUND_SIZE - mix.rivers - mix.sites - mix.foods)
     }
   })
 
@@ -129,17 +131,26 @@ describe('rounds', () => {
     const seen = new Set<string>()
     const rivers: string[] = []
     for (let i = 0; i < 10; i++) {
-      for (const p of pickRound(seen, PLACES, ROUND_SIZE, { rivers: 3, sites: 0 })) if (p.kind === 'river') rivers.push(p.id)
+      for (const p of pickRound(seen, PLACES, ROUND_SIZE, { rivers: 3, sites: 0, foods: 0 })) if (p.kind === 'river') rivers.push(p.id)
     }
     expect(new Set(rivers).size).toBe(rivers.length) // 10 rounds x 3 = all 30
   })
 
   it('starts a kind over when it has been used up', () => {
     const seen = new Set(PLACES.map((p) => p.id))
-    const round = pickRound(seen, PLACES, ROUND_SIZE, { rivers: 2, sites: 2 })
+    const round = pickRound(seen, PLACES, ROUND_SIZE, { rivers: 2, sites: 2, foods: 0 })
     expect(round).toHaveLength(ROUND_SIZE)
     expect(count(round, 'river')).toBe(2)
     expect(count(round, 'site')).toBe(2)
+  })
+
+  it('serves specialties as markers, never next to a confusing place, and never without any in the pool', () => {
+    const foods = PLACES.filter((p) => p.kind === 'food')
+    expect(foods.length).toBeGreaterThanOrEqual(20)
+    expect(foods.every((f) => !f.lines && inMap(f.x, f.y))).toBe(true)
+    const round = pickRound(new Set(), PLACES, ROUND_SIZE, { rivers: 0, sites: 0, foods: 3 })
+    expect(count(round, 'food')).toBe(3)
+    expect(availableMixes(PLACES.filter((p) => p.kind !== 'food')).every((m) => m.foods === 0)).toBe(true)
   })
 
   it('still builds full rounds for a sparse country (few cities, 2 sites, no rivers)', () => {

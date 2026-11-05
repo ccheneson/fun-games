@@ -1,7 +1,7 @@
 import { makeStrings } from '../strings'
 import type { CountryContent } from '../types'
 
-/** What was written by hand for France: cities, sites and rivers, each with a fun fact (in French). */
+/** What was written by hand for France: cities, sites, foods and rivers, each with a fun fact (in French). */
 export const content: CountryContent = {
   id: 'france',
   name: 'France',
@@ -89,6 +89,38 @@ export const content: CountryContent = {
     { name: 'La tapisserie de Bayeux', city: 'Bayeux', lat: 49.2741, lon: -0.7014, fact: 'Longue d\'environ 70 m, elle raconte en broderie la conquête de l\'Angleterre par Guillaume le Conquérant en 1066.' },
     { name: 'Omaha Beach', city: 'Colleville-sur-Mer', lat: 49.3697, lon: -0.8744, fact: 'C\'est l\'une des cinq plages du Débarquement du 6 juin 1944, surplombée par le cimetière américain.' },
     { name: 'Le rocher Saint-Michel d\'Aiguilhe', city: 'Le Puy-en-Velay', lat: 45.0485, lon: 3.8913, fact: 'Une chapelle du Xᵉ siècle est perchée au sommet de ce piton volcanique haut d\'environ 80 m.' },
+  ],
+  foods: [
+    { name: "La bouillabaisse", place: "Marseille", lat: 43.2967, lon: 5.3764, fact: "Cette soupe de poissons de roche, servie avec rouille et croûtons, est un emblème de Marseille ; une charte de 1980 en fixe la recette traditionnelle." },
+    { name: "Le cassoulet", place: "Castelnaudary", lat: 43.3121, lon: 1.9502, fact: "Castelnaudary, Carcassonne et Toulouse se disputent ce ragoût de haricots blancs et de viandes ; Prosper Montagné a tranché en les comparant à la Sainte Trinité." },
+    { name: "La choucroute", place: "Strasbourg", lat: 48.5733, lon: 7.7522, fact: "Ce chou fermenté garni de saucisses et de charcuteries est le plat emblématique de l'Alsace, qui bénéficie d'une IGP « choucroute d'Alsace »." },
+    { name: "La tarte Tatin", place: "Lamotte-Beuvron", lat: 47.6022, lon: 2.0247, fact: "Cette tarte aux pommes caramélisées, cuite à l'envers, a été rendue célèbre par les sœurs Tatin, qui tenaient l'hôtel de Lamotte-Beuvron de 1894 à 1906." },
+    { name: "Le kouign-amann", place: "Douarnenez", lat: 48.0922, lon: -4.3303, fact: "Son nom breton signifie « gâteau au beurre » ; il serait né vers 1860 à Douarnenez, mais son origine exacte n'est pas attestée." },
+    { name: "Le camembert", place: "Camembert", lat: 48.8931, lon: 0.1775, fact: "La légende attribue la recette à Marie Harel en 1791, mais cette histoire est douteuse ; seul le « Camembert de Normandie » est une AOP protégée." },
+    { name: "La saucisse de Morteau", place: "Morteau", lat: 47.058, lon: 6.6061, fact: "Cette saucisse fumée est suspendue pour le fumage dans de grandes cheminées en bois, appelées tuyés, caractéristiques du Haut-Doubs." },
+    { name: "Les calissons", place: "Aix-en-Provence", lat: 43.5232, lon: 5.4451, fact: "Ces petites friandises en forme d'amande, à base de pâte d'amande et de melon confit, sont recouvertes d'un glaçage blanc." },
+    { name: "Le nougat de Montélimar", place: "Montélimar", lat: 44.5586, lon: 4.7508, fact: "Ce nougat blanc aux amandes, au miel et souvent aux pistaches fait la renommée de la ville, qui lui consacre une IGP." },
+    { name: "La cervelle de canut", place: "Lyon", lat: 45.7675, lon: 4.835, fact: "Ce fromage blanc aux herbes, à l'ail et à l'échalote doit son nom aux canuts, les ouvriers de la soie lyonnais ; il ne contient pas de cervelle." },
+    { name: "Le canelé", place: "Bordeaux", lat: 44.8378, lon: -0.5794, fact: "Ce petit gâteau parfumé au rhum et à la vanille est reconnaissable à sa croûte caramélisée et à son cœur moelleux." },
+    { name: "Le piment d'Espelette", place: "Espelette", lat: 43.3403, lon: -1.4478, fact: "Séché sur les façades blanches des maisons du village à l'automne, il bénéficie d'une appellation d'origine protégée." },
+    { name: "Le jambon de Bayonne", place: "Bayonne", lat: 43.4925, lon: -1.4764, fact: "Ce jambon sec bénéficie d'une IGP ; il est traditionnellement salé avec du sel extrait à Salies-de-Béarn." },
+    { name: "Les rillettes du Mans", place: "Le Mans", lat: 48.0042, lon: 0.1969, fact: "Du porc cuit longuement dans sa propre graisse puis effiloché : les rillettes de la Sarthe sont protégées par une IGP." },
+    { name: "La madeleine de Commercy", place: "Commercy", lat: 48.7642, lon: 5.5917, fact: "Selon la légende, elle aurait été servie au duc de Lorraine Stanislas Leszczynski, qui l'aurait fait connaître à la cour." },
+    { name: "La moutarde de Dijon", place: "Dijon", lat: 47.3231, lon: 5.0419, fact: "Le nom désigne un savoir-faire plus qu'une origine des graines : aujourd'hui, une grande partie des graines utilisées vient de l'étranger." },
+    { name: "Le poulet de Bresse", place: "Bourg-en-Bresse", lat: 46.2001, lon: 5.2146, fact: "Avec ses pattes bleues, il a été la première volaille à obtenir une AOC, en 1957, puis une AOP en 1996." },
+    { name: "Le reblochon", place: "Thônes", lat: 45.8822, lon: 6.3256, fact: "Son nom viendrait de « reblocher », traire une seconde fois : selon l'histoire, les fermiers gardaient ce lait plus gras pour eux." },
+    { name: "L'andouille de Guémené", place: "Guémené-sur-Scorff", lat: 48.0647, lon: -3.2064, fact: "Une fois tranchée, elle se reconnaît à ses cercles concentriques, formés par des boyaux de porc enroulés les uns dans les autres." },
+    { name: "Les pruneaux d'Agen", place: "Agen", lat: 44.2083, lon: 0.6208, fact: "Séchés puis souvent fourrés, ces pruneaux sont issus de la prune d'ente et protégés par une IGP." },
+    { name: "Le roquefort", place: "Roquefort-sur-Soulzon", lat: 43.9767, lon: 2.9889, fact: "Ce fromage de brebis est affiné dans les caves naturelles du Combalou ; en 1925, il est devenu le premier fromage à obtenir une AOC." },
+    { name: "L'aligot", place: "Saint-Chély-d'Aubrac", lat: 44.5906, lon: 2.9211, fact: "Cette purée de pommes de terre à la tomme fraîche et à l'ail s'étire en longs rubans filants : plus on la soulève, plus elle s'étire." },
+    { name: "Les lentilles vertes du Puy", place: "Le Puy-en-Velay", lat: 45.0428, lon: 3.8926, fact: "Cultivées sur un sol volcanique, ces lentilles ont obtenu une AOC en 1996 : ce fut la première légumineuse à l'obtenir." },
+    { name: "La truffe noire du Périgord", place: "Périgueux", lat: 45.1842, lon: 0.7181, fact: "Surnommée le « diamant noir », cette truffe est récoltée en hiver et donne son nom à la sauce Périgueux." },
+    { name: "La salade niçoise", place: "Nice", lat: 43.7019, lon: 7.2683, fact: "Selon les puristes niçois, elle se compose de légumes crus, d'œufs, d'anchois ou de thon et d'olives, sans légumes cuits." },
+    { name: "Les anchois de Collioure", place: "Collioure", lat: 42.5267, lon: 3.0814, fact: "Ces petits poissons sont salés et mis en conserve à la main, selon une tradition de ce port catalan." },
+    { name: "Le maroilles", place: "Maroilles", lat: 50.135, lon: 3.7608, fact: "Ce fromage à croûte lavée, au goût fort et à la croûte orangée, serait né dans l'abbaye de Maroilles ; il est protégé par une AOP." },
+    { name: "Le paris-brest", place: "Maisons-Laffitte", lat: 48.9461, lon: 2.145, fact: "Cette couronne de pâte à choux au praliné évoque une roue de vélo, en hommage à la course Paris-Brest-Paris ; elle est attribuée à un pâtissier de Maisons-Laffitte." },
+    { name: "Le brocciu", place: "Venaco", lat: 42.2337, lon: 9.1752, fact: "Ce fromage frais de petit-lait de brebis ou de chèvre, protégé par une AOP, est le « fromage national » des Corses." },
+    { name: "Le munster", place: "Munster", lat: 48.0414, lon: 7.1342, fact: "Ce fromage à croûte lavée et à l'odeur marquée, originaire de la vallée de Munster en Alsace, est protégé par une AOP." },
   ],
   rivers: {
     loire: { name: "La Loire", fact: "Avec environ 1 006 km, c'est le plus long fleuve de France, et son val est inscrit au patrimoine mondial de l'UNESCO." },

@@ -34,34 +34,45 @@ const builtIn = lang === 'fr' || lang === 'en'
 const flag = info.iso2 && /^[A-Z]{2}$/.test(info.iso2) ? String.fromCodePoint(...[...info.iso2].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65)) : '🗺️'
 
 // ---- meta.ts ---------------------------------------------------------------------
-const menuName = { fr: `${name} : villes, rivières et monuments`, en: `${name}: cities, rivers and landmarks` }[lang] ?? `TODO (${lang}) ${name}: cities, rivers and landmarks`
+// The menu card lists the kinds the country will have: rivers only if the map has some (the written content may drop
+// specialties or landmarks later: keep the card in sync, the skill says so).
+const hasRivers = info.rivers.length > 0
+const menuName = {
+  fr: `${name} : villes, monuments, ${hasRivers ? 'rivières et ' : 'et '}spécialités`.replace(', et ', ' et '),
+  en: `${name}: cities, landmarks, ${hasRivers ? 'rivers and ' : 'and '}specialties`.replace(', and ', ' and '),
+}[lang] ?? `TODO (${lang}) ${name}: cities, landmarks, ${hasRivers ? 'rivers and ' : 'and '}specialties`
 const menuDescription =
   {
-    fr: 'Fais glisser les noms de 5 villes, rivières ou monuments sur leur emplacement sur la carte, et découvre une anecdote sur chacun.',
-    en: 'Drag the names of 5 cities, rivers or landmarks onto their place on the map and learn a fun fact about each.',
-  }[lang] ?? `TODO (${lang}) Drag the names of 5 cities, rivers or landmarks onto their place on the map and learn a fun fact about each.`
+    fr: `Fais glisser les noms de 5 ${hasRivers ? 'villes, monuments, rivières' : 'villes, monuments'} ou spécialités sur leur emplacement sur la carte, et découvre une anecdote sur chacun.`,
+    en: `Drag the names of 5 ${hasRivers ? 'cities, landmarks, rivers' : 'cities, landmarks'} or food specialties onto their place on the map and learn a fun fact about each.`,
+  }[lang] ?? `TODO (${lang}) Drag the names of 5 places onto their place on the map and learn a fun fact about each.`
 
 // ---- content.ts ------------------------------------------------------------------
 const stringsBlock = builtIn
   ? `makeStrings('${lang}', ${q(name)})`
   : `// TODO: translate every text below into "${lang}" (keep the {placeholders}); the tests reject leftover TODOs.
   {
-    title: ${q(`TODO (${lang}) ${name}: cities, rivers and landmarks`)},
-    lead: 'TODO Drag each name onto the map: onto its round dot (city), its diamond (landmark) or its highlighted course (river). You can also tap a name, then its target.',
+    title: ${q(`TODO (${lang}) ${name}: {kinds}`)},
+    lead: 'TODO Drag each name onto its target.',
     scoreLine: 'TODO Round {round} · Score: {score}',
-    hint: 'TODO Place a name correctly to learn a fun fact about it. +1 for a right answer, −1 for a wrong one.',
-    nextRound: 'TODO Next {n} targets',
-    mapLabel: ${q(`TODO Map: ${name}, {n} targets to place (cities, landmarks and rivers)`)},
+    hint: 'TODO +1 if right, −1 if wrong, plus a fun fact. You can also tap a name, then its target.',
+    originLabel: 'TODO Specialty of {place}',
+    siteOriginLabel: 'TODO Landmark · {place}',
+    nextRound: 'TODO Next',
+    mapLabel: ${q(`TODO Map: ${name}, {n} targets to place ({kinds})`)},
     namesLabel: 'TODO Names to place',
-    kindLabels: { city: 'TODO City', site: 'TODO Landmark', river: 'TODO River' },
+    kindLabels: { city: 'TODO City', site: 'TODO Landmark', river: 'TODO River', food: 'TODO Specialty' },
+    kindNames: { city: 'TODO cities', site: 'TODO landmarks', river: 'TODO rivers', food: 'TODO specialties' },
+    legend: { city: '● TODO city', site: '◆ TODO landmark', river: '▬ TODO river', food: '■ TODO specialty' },
+    listAnd: 'TODO and',
     aboutTitle: 'TODO About the data',
-    aboutText: 'TODO The map, the rivers and the locations of cities and landmarks are simplified and approximate: they are meant for playing, not for finding your way or navigating. River courses are generalised, distances and borders are not exact, and a marker can be a few kilometres away from the real place. The fun facts, figures (heights, lengths, dates) and names were written in good faith but not systematically verified: they may contain errors or simplifications. If you spot one, please report it.',
+    aboutText: 'TODO The map, the rivers and the locations of cities, landmarks and food specialties are simplified and approximate: they are meant for playing, not for finding your way or navigating. River courses are generalised, distances and borders are not exact, and a marker can be a few kilometres away from the real place. The fun facts, figures (heights, lengths, dates) and names were written in good faith but not systematically verified: they may contain errors or simplifications. If you spot one, please report it.',
     aboutSource: 'TODO Base map and rivers: {link} (public domain), simplified.',
   }`
 const riversBlock = info.rivers.map((r) => `    ${/^[a-z]+$/.test(r.id) ? r.id : q(r.id)}: { name: ${q(r.name)}, fact: '' }, // TODO name in "${lang}" + fact (~${r.km} km in the country)`).join('\n')
 const content = `${builtIn ? "import { makeStrings } from '../strings'\n" : ''}import type { CountryContent } from '../types'
 
-/** Written part of ${info.nameEn}: cities, sites and rivers, each with a fun fact (in "${lang}"). Fill in every TODO. */
+/** Written part of ${info.nameEn}: cities, sites, foods and rivers, each with a fun fact (in "${lang}"). Fill in every TODO. */
 export const content: CountryContent = {
   id: ${q(id)},
   name: ${q(name)},
@@ -70,6 +81,8 @@ export const content: CountryContent = {
   cities: [],
   // ~50 famous sites, at most one per commune: { name, city, lat, lon, fact }
   sites: [],
+  // ~30 culinary specialties tied to a town of origin, one per town: { name, place, lat, lon, fact }
+  foods: [],
   rivers: {
 ${riversBlock}
   },
