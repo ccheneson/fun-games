@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Natural Earth downloads and generated previews (scripts/country)
+.cache
