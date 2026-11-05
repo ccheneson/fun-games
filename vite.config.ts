@@ -8,7 +8,7 @@ const CSP = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://m.media-amazon.com",
+  "img-src 'self' data: blob: https://m.media-amazon.com https://image.tmdb.org",
   "connect-src 'self' https://query.wikidata.org https://commons.wikimedia.org https://upload.wikimedia.org",
   "object-src 'none'",
   "base-uri 'self'",
