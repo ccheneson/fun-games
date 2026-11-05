@@ -1,6 +1,6 @@
 # Writing the content of a country
 
-Reference: `src/lib/countries/france/content.ts` (30 cities, 50 sites, 30 rivers, in French).
+Reference: `src/lib/countries/france/content.ts` (30 cities, 50 sites, 30 specialties, 30 rivers, in French).
 
 ## Shape
 
@@ -14,6 +14,9 @@ export const content: CountryContent = {
   ],
   sites: [
     { name: 'La tour Eiffel', city: 'Paris', lat: 48.8584, lon: 2.2945, fact: "…" },
+  ],
+  foods: [
+    { name: 'Le roquefort', place: 'Roquefort-sur-Soulzon', lat: 43.9767, lon: 2.9889, fact: "…" },
   ],
   rivers: {
     loire: { name: 'La Loire', fact: "…" },   // keys = the river ids printed by build-map.mjs / listed by the scaffold
@@ -34,10 +37,21 @@ export const content: CountryContent = {
 
 - Famous, recognisable places: monuments, castles, cathedrals, bridges, mountains, natural wonders, historic sites.
 - **At most one per city/commune**: the `city` field must be unique across the list.
+  The `city` field is **shown to the player** ("Monument · Rabat"): use a real, readable town name, never a note like "(ruines)".
   (Paris has the Eiffel Tower, not also Sacré-Cœur.) A site may be in a commune that is also in `cities`.
 - Spread across the country, not only the capital region. Use the site's own coordinates (Wikidata), not the city centre.
 - Aim for 50, but any number works, even none: if you cannot find enough well-sourced landmarks, stop at the count you have rather than pad.
   Name = how people say it in the legend language, with its article if the language uses one.
+
+## Foods (culinary specialties, about 30, optional)
+
+- Regional specialties tied to **one town or village of origin** (cheese, charcuterie, pastry, dish, protected product),
+  placed on that town. One specialty per `place`; two dishes never share a town.
+- Pick famous, distinctive ones, spread across the country; skip dishes eaten everywhere (a plain omelette, pizza in Italy).
+- Origins are often legends or disputed: say so in the fact ("selon la légende", "attribué à", "serait né"), and use the
+  official origin (AOP/IGP or national equivalent) only when sourced. Verify the town of origin, any date and any label.
+- Coordinates of the town (Wikidata), `lat` then `lon`. Beware homonyms (Munster, Lyon…): check the country and the region.
+- Fewer than 30, or none, is fine; carry on with what you have.
 
 ## Rivers
 
@@ -58,6 +72,6 @@ export const content: CountryContent = {
 ## Strings (languages other than fr/en)
 
 Translate every field of `Strings` (see `src/lib/countries/types.ts`, and the English and French sets in
-`src/lib/countries/strings.ts`). Keep `{country}`, `{n}`, `{round}`, `{score}` and `{link}` exactly; keep the tone short and
+`src/lib/countries/strings.ts`). Keep `{country}`, `{n}`, `{round}`, `{score}`, `{place}` and `{link}` exactly; keep the tone short and
 friendly; keep the data disclaimer in `aboutText`. Also translate `name` and `description` in `meta.ts`.
 Typical gotcha: languages with grammatical cases or articles for the country name; prefer wording that uses the name unchanged.
