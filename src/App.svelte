@@ -33,10 +33,10 @@
   {#if path === '/settings'}
     <Settings />
   {:else if game}
-    {#await game.load()}
+    {#await Promise.all([game.load(), game.props?.() ?? {}])}
       <p>Loading…</p>
-    {:then mod}
-      <mod.default />
+    {:then [mod, props]}
+      <mod.default {...props} />
     {:catch}
       <p class="error">Could not load this game.</p>
     {/await}
