@@ -1,8 +1,5 @@
-import { CITIES } from '../france/cities'
-import { RIVER_FACTS } from '../france/riverFacts'
-import { RIVER_SHAPES } from '../france/rivers'
-import { SITES } from '../france/sites'
-import { distanceToLine, project, type Line, type Point } from '../france/geo'
+import { distanceToLine, projector, type Line, type Point } from '../countries/geo'
+import type { CountryData } from '../countries/types'
 import { shuffle } from '../db/seed'
 
 export const ROUND_SIZE = 5
@@ -24,13 +21,19 @@ export interface RoundPlace extends PlaceDef {
   placed: boolean
 }
 
-export const PLACES: PlaceDef[] = [
-  ...CITIES.map((c): PlaceDef => ({ id: 'city:' + c.name, kind: 'city', name: c.name, fact: c.fact, ...project(c.lat, c.lon) })),
-  ...SITES.map((s): PlaceDef => ({ id: 'site:' + s.name, kind: 'site', name: s.name, fact: s.fact, ...project(s.lat, s.lon) })),
-  ...RIVER_SHAPES.map(
-    (r): PlaceDef => ({ id: 'river:' + r.id, kind: 'river', name: r.name, fact: RIVER_FACTS[r.id], x: r.label[0], y: r.label[1], lines: r.lines }),
-  ),
-]
+/** Every city, site and river of a country, ready to be placed on its map. */
+export function buildPlaces(country: CountryData): PlaceDef[] {
+  const project = projector(country.map)
+  const rivers = country.map.rivers.flatMap((shape): PlaceDef[] => {
+    const info = country.rivers[shape.id]
+    return info ? [{ id: 'river:' + shape.id, kind: 'river', name: info.name, fact: info.fact, x: shape.label[0], y: shape.label[1], lines: shape.lines }] : []
+  })
+  return [
+    ...country.cities.map((c): PlaceDef => ({ id: 'city:' + c.name, kind: 'city', name: c.name, fact: c.fact, ...project(c.lat, c.lon) })),
+    ...country.sites.map((s): PlaceDef => ({ id: 'site:' + s.name, kind: 'site', name: s.name, fact: s.fact, ...project(s.lat, s.lon) })),
+    ...rivers,
+  ]
+}
 
 /** Distance (map units) from a point to the place: to the marker, or to the nearest bit of river. */
 export function distanceTo(place: PlaceDef, p: Point): number {
@@ -74,8 +77,15 @@ export const ROUND_MIXES: readonly RoundMix[] = [
   { rivers: 2, sites: 2 },
 ]
 
-export function pickMix(random: () => number = Math.random): RoundMix {
-  return ROUND_MIXES[Math.floor(random() * ROUND_MIXES.length)]
+/** The mixes a pool can serve (a small country may have too few rivers or sites for some of them). */
+export function availableMixes(pool: PlaceDef[], n = ROUND_SIZE): readonly RoundMix[] {
+  const rivers = pool.filter((p) => p.kind === 'river').length
+  const sites = pool.filter((p) => p.kind === 'site').length
+  return ROUND_MIXES.filter((m) => m.rivers <= rivers && m.sites <= sites && m.rivers + m.sites < n)
+}
+
+export function pickMix(random: () => number = Math.random, mixes: readonly RoundMix[] = ROUND_MIXES): RoundMix {
+  return mixes[Math.floor(random() * mixes.length)]
 }
 
 /**
@@ -83,7 +93,7 @@ export function pickMix(random: () => number = Math.random): RoundMix {
  * Places in `seen` are avoided until a kind has been used up, then that kind starts over;
  * places that would be confusing next to one already picked are skipped.
  */
-export function pickRound(seen: Set<string>, n = ROUND_SIZE, pool: PlaceDef[] = PLACES, mix: RoundMix = pickMix()): PlaceDef[] {
+export function pickRound(seen: Set<string>, pool: PlaceDef[], n = ROUND_SIZE, mix: RoundMix = pickMix(Math.random, availableMixes(pool, n))): PlaceDef[] {
   const chosen: PlaceDef[] = []
 
   function pickOne(kind: PlaceKind): boolean {

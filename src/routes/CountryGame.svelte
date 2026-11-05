@@ -1,9 +1,17 @@
 <script lang="ts">
   import { onDestroy } from 'svelte'
   import { shuffle } from '../lib/db/seed'
-  import { FRANCE_PATH, MAP } from '../lib/france/outline'
-  import { nearestBy, type Line, type Point } from '../lib/france/geo'
-  import { applyPoints, distanceTo, pickRound, toRoundPlaces, ROUND_SIZE, type RoundPlace } from '../lib/games/places'
+  import { fmt } from '../lib/countries/strings'
+  import type { CountryData } from '../lib/countries/types'
+  import { nearestBy, type Line, type Point } from '../lib/countries/geo'
+  import { applyPoints, buildPlaces, distanceTo, pickRound, toRoundPlaces, ROUND_SIZE, type RoundPlace } from '../lib/games/places'
+
+  let { country }: { country: CountryData } = $props()
+  // The country never changes while the game is open (a new country means a new page).
+  /* svelte-ignore state_referenced_locally */
+  const { map, strings: t } = country
+  /* svelte-ignore state_referenced_locally */
+  const pool = buildPlaces(country)
 
   /** How close (in map units) a drop must be to a marker or a river to count as aimed at it. */
   const DROP_RADIUS = 34
@@ -11,7 +19,7 @@
   const DRAG_THRESHOLD = 6
 
   const seen = new Set<string>()
-  const first = toRoundPlaces(pickRound(seen))
+  const first = toRoundPlaces(pickRound(seen, pool))
   let round = $state<RoundPlace[]>(first)
   let ids = $state(shuffle(first.map((c) => c.id)))
   let score = $state(0)
@@ -28,14 +36,14 @@
 
   /** Placed labels flip to the left of their marker when they would run off the right edge of the map. */
   const LABEL_CHAR_WIDTH = 11
-  const flips = (place: RoundPlace, gap: number) => place.x + gap + place.name.length * LABEL_CHAR_WIDTH > MAP.width - 4
+  const flips = (place: RoundPlace, gap: number) => place.x + gap + place.name.length * LABEL_CHAR_WIDTH > map.width - 4
 
   const done = $derived(round.every((c) => c.placed))
   const byId = (id: string) => round.find((c) => c.id === id)!
   const pathOf = (lines: Line[]) => lines.map((l) => 'M' + l.map(([x, y]) => `${x} ${y}`).join('L')).join('')
 
   function newRound() {
-    round = toRoundPlaces(pickRound(seen))
+    round = toRoundPlaces(pickRound(seen, pool))
     ids = shuffle(round.map((c) => c.id))
     selected = null
     lastFact = null
@@ -121,19 +129,19 @@
   onDestroy(() => clearTimeout(wrongTimeout))
 </script>
 
-<h1>Villes, rivières et monuments</h1>
-<p class="lead">Fais glisser chaque nom sur la carte : sur son point rond (ville), son losange (monument) ou son cours d'eau en surbrillance (rivière). Tu peux aussi toucher un nom, puis sa cible.</p>
-<p class="score" aria-live="polite">Manche {roundNo} · Score : {score}</p>
+<h1>{t.title}</h1>
+<p class="lead">{t.lead}</p>
+<p class="score" aria-live="polite">{fmt(t.scoreLine, { round: roundNo, score })}</p>
 
 <div class="board">
   <svg
     bind:this={svgEl}
     class="map"
-    viewBox={`0 0 ${MAP.width} ${MAP.height}`}
+    viewBox={`0 0 ${map.width} ${map.height}`}
     role="group"
-    aria-label="Carte de la France avec {ROUND_SIZE} cibles : villes, monuments et rivières"
+    aria-label={fmt(t.mapLabel, { country: country.name, n: ROUND_SIZE })}
   >
-    <path d={FRANCE_PATH} class="land" />
+    <path d={map.outline} class="land" />
     {#each round as place, i (place.id)}
       <g
         class="target"
@@ -144,7 +152,7 @@
         class:wrong={wrongTarget === place.id}
         role="button"
         tabindex={place.placed ? -1 : 0}
-        aria-label={place.placed ? place.name : `${place.kind === 'river' ? "Cours d'eau" : place.kind === 'site' ? 'Monument' : 'Ville'} ${i + 1}`}
+        aria-label={place.placed ? place.name : `${t.kindLabels[place.kind]} ${i + 1}`}
         onclick={() => onTargetActivate(place)}
         onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onTargetActivate(place))}
       >
@@ -172,7 +180,7 @@
   </svg>
 
   <div class="side">
-    <ul class="names" aria-label="Noms à placer">
+    <ul class="names" aria-label={t.namesLabel}>
       {#each ids as id (id)}
         {@const place = byId(id)}
         <li>
@@ -201,28 +209,21 @@
         <strong>{lastFact.name}</strong>
         <p>{lastFact.fact}</p>
       {:else}
-        <p class="hint">Place bien un nom pour découvrir une anecdote à son sujet. +1 pour une bonne réponse, −1 pour une mauvaise.</p>
+        <p class="hint">{t.hint}</p>
       {/if}
     </div>
 
     {#if done}
-      <button type="button" class="next" onclick={newRound}>{ROUND_SIZE} nouvelles cibles</button>
+      <button type="button" class="next" onclick={newRound}>{fmt(t.nextRound, { n: ROUND_SIZE })}</button>
     {/if}
   </div>
 </div>
 
 <details class="about">
-  <summary>À propos des données</summary>
+  <summary>{t.aboutTitle}</summary>
+  <p>{t.aboutText}</p>
   <p>
-    La carte, les cours d'eau et les emplacements des villes et des monuments sont simplifiés et approximatifs : ils servent à jouer,
-    pas à se repérer ni à naviguer. Le tracé des rivières est généralisé, les distances et les frontières ne sont pas exactes, et un
-    repère peut se trouver à quelques kilomètres du lieu réel. Les anecdotes, chiffres (hauteurs, longueurs, dates) et noms ont été
-    rédigés de bonne foi mais sans vérification systématique : ils peuvent contenir des erreurs ou des simplifications. Si vous en
-    repérez une, merci de la signaler.
-  </p>
-  <p>
-    Fond de carte et cours d'eau : <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener noreferrer">Natural Earth</a>
-    (domaine public), simplifiés.
+    {#each t.aboutSource.split('{link}') as part, i}{#if i > 0}<a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener noreferrer">Natural Earth</a>{/if}{part}{/each}
   </p>
 </details>
 

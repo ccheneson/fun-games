@@ -1,92 +1,26 @@
 import { describe, expect, it } from 'vitest'
-import { CITIES } from '../src/lib/france/cities'
-import { MAP } from '../src/lib/france/outline'
-import { RIVER_SHAPES } from '../src/lib/france/rivers'
-import { RIVER_FACTS } from '../src/lib/france/riverFacts'
-import { distanceToLine, nearestBy, project } from '../src/lib/france/geo'
-import { SITES } from '../src/lib/france/sites'
-import { applyPoints, conflicts, distanceTo, MARKER_GAP, pickMix, pickRound, PLACES, ROUND_MIXES, ROUND_SIZE, toRoundPlaces } from '../src/lib/games/places'
+import france from '../src/lib/countries/france'
+import { distanceToLine, nearestBy, projector } from '../src/lib/countries/geo'
+import {
+  applyPoints,
+  availableMixes,
+  buildPlaces,
+  conflicts,
+  distanceTo,
+  MARKER_GAP,
+  pickMix,
+  pickRound,
+  ROUND_MIXES,
+  ROUND_SIZE,
+  toRoundPlaces,
+} from '../src/lib/games/places'
 
-const inMap = (x: number, y: number) => x > 0 && x < MAP.width && y > 0 && y < MAP.height
-
-describe('city data', () => {
-  it('has unique names and a fact for every city', () => {
-    expect(new Set(CITIES.map((c) => c.name)).size).toBe(CITIES.length)
-    for (const c of CITIES) expect(c.fact.length).toBeGreaterThan(20)
-  })
-
-  it('projects every city inside the map', () => {
-    for (const c of CITIES) {
-      const p = project(c.lat, c.lon)
-      expect(inMap(p.x, p.y), c.name).toBe(true)
-    }
-  })
-
-  it('keeps every pair of markers apart (dots must not overlap)', () => {
-    const pts = CITIES.map((c) => ({ name: c.name, ...project(c.lat, c.lon) }))
-    for (let i = 0; i < pts.length; i++)
-      for (let j = i + 1; j < pts.length; j++)
-        expect(Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y), `${pts[i].name}/${pts[j].name}`).toBeGreaterThan(20)
-  })
-
-  it('puts Paris north of Marseille and west of Strasbourg', () => {
-    const [paris, marseille, strasbourg] = ['Paris', 'Marseille', 'Strasbourg'].map((n) => {
-      const c = CITIES.find((x) => x.name === n)!
-      return project(c.lat, c.lon)
-    })
-    expect(paris.y).toBeLessThan(marseille.y)
-    expect(paris.x).toBeLessThan(strasbourg.x)
-  })
-})
-
-describe('site data', () => {
-  it('has exactly 50 sites, each with a fact', () => {
-    expect(SITES).toHaveLength(50)
-    expect(new Set(SITES.map((x) => x.name)).size).toBe(50)
-    for (const x of SITES) expect(x.fact.length, x.name).toBeGreaterThan(20)
-  })
-
-  it('has at most one site per city', () => {
-    expect(new Set(SITES.map((x) => x.city)).size).toBe(SITES.length)
-  })
-
-  it('projects every site inside the map', () => {
-    for (const x of SITES) {
-      const p = project(x.lat, x.lon)
-      expect(inMap(p.x, p.y), x.name).toBe(true)
-    }
-  })
-})
-
-describe('river data', () => {
-  it('has exactly 30 rivers', () => {
-    expect(RIVER_SHAPES).toHaveLength(30)
-  })
-
-  it('has a fact and a course inside the map for every river', () => {
-    expect(new Set(RIVER_SHAPES.map((r) => r.id)).size).toBe(RIVER_SHAPES.length)
-    for (const r of RIVER_SHAPES) {
-      expect(RIVER_FACTS[r.id]?.length, r.id).toBeGreaterThan(20)
-      expect(r.lines.length).toBeGreaterThan(0)
-      for (const line of r.lines) for (const [x, y] of line) expect(inMap(x, y), r.id).toBe(true)
-      expect(inMap(r.label[0], r.label[1])).toBe(true)
-    }
-  })
-
-  it('lies where the real rivers are (spot checks)', () => {
-    const paris = project(48.8566, 2.3522)
-    const seine = RIVER_SHAPES.find((r) => r.id === 'seine')!
-    expect(Math.min(...seine.lines.map((l) => distanceToLine(paris, l)))).toBeLessThan(10)
-    const lyon = project(45.764, 4.8357)
-    for (const id of ['rhone', 'saone']) {
-      const r = RIVER_SHAPES.find((x) => x.id === id)!
-      expect(Math.min(...r.lines.map((l) => distanceToLine(lyon, l))), id).toBeLessThan(10)
-    }
-    const nantes = project(47.2184, -1.5536)
-    const loire = RIVER_SHAPES.find((r) => r.id === 'loire')!
-    expect(Math.min(...loire.lines.map((l) => distanceToLine(nantes, l)))).toBeLessThan(10)
-  })
-})
+const PLACES = buildPlaces(france)
+const project = projector(france.map)
+const inMap = (x: number, y: number) => x > 0 && x < france.map.width && y > 0 && y < france.map.height
+const CITIES = france.cities
+const SITES = france.sites
+const RIVER_SHAPES = france.map.rivers
 
 describe('geometry', () => {
   const line = [[0, 0], [100, 0]] as const
@@ -117,13 +51,24 @@ describe('rounds', () => {
 
   it('has cities, sites and rivers in the pool', () => {
     expect(PLACES.filter((p) => p.kind === 'city')).toHaveLength(CITIES.length)
-    expect(PLACES.filter((p) => p.kind === 'site')).toHaveLength(50)
-    expect(PLACES.filter((p) => p.kind === 'river')).toHaveLength(30)
+    expect(PLACES.filter((p) => p.kind === 'site')).toHaveLength(SITES.length)
+    expect(PLACES.filter((p) => p.kind === 'river')).toHaveLength(RIVER_SHAPES.length)
     expect(new Set(PLACES.map((p) => p.id)).size).toBe(PLACES.length)
   })
 
+  it('only offers the mixes a small pool can serve', () => {
+    const noRivers = PLACES.filter((p) => p.kind !== 'river')
+    expect(availableMixes(noRivers).every((m) => m.rivers === 0)).toBe(true)
+    const oneSite = [...PLACES.filter((p) => p.kind !== 'site'), PLACES.find((p) => p.kind === 'site')!]
+    expect(availableMixes(oneSite).every((m) => m.sites === 0)).toBe(true)
+    expect(availableMixes(PLACES)).toEqual(ROUND_MIXES)
+    // a country with no rivers and no sites still plays: all cities
+    const round = pickRound(new Set(), PLACES.filter((p) => p.kind === 'city'))
+    expect(round.every((p) => p.kind === 'city')).toBe(true)
+  })
+
   it('picks 5 distinct places', () => {
-    const picked = pickRound(new Set())
+    const picked = pickRound(new Set(), PLACES)
     expect(picked).toHaveLength(ROUND_SIZE)
     expect(new Set(picked.map((c) => c.id)).size).toBe(ROUND_SIZE)
   })
@@ -140,7 +85,7 @@ describe('rounds', () => {
     const seen = new Set<string>()
     const mixes = new Set<string>()
     for (let i = 0; i < 400; i++) {
-      const r = pickRound(seen)
+      const r = pickRound(seen, PLACES)
       expect(r).toHaveLength(ROUND_SIZE)
       mixes.add(`${count(r, 'river')}/${count(r, 'site')}`)
     }
@@ -154,7 +99,7 @@ describe('rounds', () => {
 
   it('fills the round as the mix asks, with cities for the rest', () => {
     for (const mix of ROUND_MIXES) {
-      const round = pickRound(new Set(), ROUND_SIZE, PLACES, mix)
+      const round = pickRound(new Set(), PLACES, ROUND_SIZE, mix)
       expect(count(round, 'river')).toBe(mix.rivers)
       expect(count(round, 'site')).toBe(mix.sites)
       expect(count(round, 'city')).toBe(ROUND_SIZE - mix.rivers - mix.sites)
@@ -164,7 +109,7 @@ describe('rounds', () => {
   it('never puts two confusing places in the same round', () => {
     const seen = new Set<string>()
     for (let i = 0; i < 300; i++) {
-      const round = pickRound(seen)
+      const round = pickRound(seen, PLACES)
       for (let a = 0; a < round.length; a++)
         for (let b = a + 1; b < round.length; b++) expect(conflicts(round[a], round[b]), `${round[a].name} / ${round[b].name}`).toBe(false)
     }
@@ -184,21 +129,35 @@ describe('rounds', () => {
     const seen = new Set<string>()
     const rivers: string[] = []
     for (let i = 0; i < 10; i++) {
-      for (const p of pickRound(seen, ROUND_SIZE, PLACES, { rivers: 3, sites: 0 })) if (p.kind === 'river') rivers.push(p.id)
+      for (const p of pickRound(seen, PLACES, ROUND_SIZE, { rivers: 3, sites: 0 })) if (p.kind === 'river') rivers.push(p.id)
     }
     expect(new Set(rivers).size).toBe(rivers.length) // 10 rounds x 3 = all 30
   })
 
   it('starts a kind over when it has been used up', () => {
     const seen = new Set(PLACES.map((p) => p.id))
-    const round = pickRound(seen, ROUND_SIZE, PLACES, { rivers: 2, sites: 2 })
+    const round = pickRound(seen, PLACES, ROUND_SIZE, { rivers: 2, sites: 2 })
     expect(round).toHaveLength(ROUND_SIZE)
     expect(count(round, 'river')).toBe(2)
     expect(count(round, 'site')).toBe(2)
   })
 
+  it('still builds full rounds for a sparse country (few cities, 2 sites, no rivers)', () => {
+    const sparse = [
+      ...PLACES.filter((p) => p.kind === 'city').slice(0, 8),
+      ...PLACES.filter((p) => p.kind === 'site').slice(0, 2),
+    ]
+    const seen = new Set<string>()
+    for (let i = 0; i < 100; i++) {
+      const round = pickRound(seen, sparse)
+      expect(round).toHaveLength(ROUND_SIZE)
+      expect(new Set(round.map((p) => p.id)).size).toBe(ROUND_SIZE)
+      expect(round.some((p) => p.kind === 'river')).toBe(false)
+    }
+  })
+
   it('starts each place unplaced with no mistakes', () => {
-    for (const c of toRoundPlaces(pickRound(new Set()))) {
+    for (const c of toRoundPlaces(pickRound(new Set(), PLACES))) {
       expect(c.placed).toBe(false)
       expect(c.mistakes).toBe(0)
     }

@@ -1,4 +1,5 @@
 import type { Component } from 'svelte'
+import { COUNTRIES } from '../countries/registry'
 
 export interface GameDef {
   id: string
@@ -6,7 +7,10 @@ export interface GameDef {
   description: string
   emoji: string
   route: string
-  load: () => Promise<{ default: Component }>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  load: () => Promise<{ default: Component<any> }>
+  /** Properties passed to the loaded component (e.g. the country of a map game). */
+  props?: () => Promise<Record<string, unknown>>
 }
 
 export const games: GameDef[] = [
@@ -26,12 +30,16 @@ export const games: GameDef[] = [
     route: '/guess-movie',
     load: () => import('../../routes/GuessMovie.svelte'),
   },
-  {
-    id: 'place-cities',
-    name: 'Villes, rivières et monuments',
-    description: 'Fais glisser les noms de 5 villes, rivières ou monuments de France sur leur emplacement sur la carte, et découvre une anecdote sur chacun.',
-    emoji: '🗺️',
-    route: '/place-cities',
-    load: () => import('../../routes/PlaceCities.svelte'),
-  },
+  // One map game per country (see scripts/country and .claude/skills/country-map-game).
+  ...COUNTRIES.map(
+    ({ meta, load }): GameDef => ({
+      id: 'map-' + meta.id,
+      name: meta.name,
+      description: meta.description,
+      emoji: meta.emoji,
+      route: '/map/' + meta.id,
+      load: () => import('../../routes/CountryGame.svelte'),
+      props: async () => ({ country: (await load()).default }),
+    }),
+  ),
 ]
