@@ -26,4 +26,12 @@ export const games: GameDef[] = [
     route: '/guess-movie',
     load: () => import('../../routes/GuessMovie.svelte'),
   },
+  {
+    id: 'place-cities',
+    name: 'Villes, rivières et monuments',
+    description: 'Fais glisser les noms de 5 villes, rivières ou monuments de France sur leur emplacement sur la carte, et découvre une anecdote sur chacun.',
+    emoji: '🗺️',
+    route: '/place-cities',
+    load: () => import('../../routes/PlaceCities.svelte'),
+  },
 ]
