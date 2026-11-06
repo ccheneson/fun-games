@@ -1,5 +1,5 @@
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   --bg: #f6f6f9;
   --surface: #ffffff;
   --surface-2: #e4e4ec;
@@ -9,21 +9,27 @@
   --accent: #5b5bd6;
   --danger: #d6455b;
   --success: #1f9d55;
+  /* Map game: historic sites and food specialties. */
+  --site: #d98e04;
+  --food: #d6336c;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.5;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #14141b;
-    --surface: #1e1e29;
-    --surface-2: #2c2c3b;
-    --border: #35354a;
-    --text: #ececf4;
-    --muted: #9a9ab5;
-    --accent: #7c7cf0;
-    --danger: #f06a80;
-    --success: #3ecf7a;
-  }
+/* Light is the default (on :root). The dark theme applies when <html> has data-theme="dark", set by
+   public/theme-init.js (before first paint) and src/lib/theme.svelte.ts. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #14141b;
+  --surface: #1e1e29;
+  --surface-2: #2c2c3b;
+  --border: #35354a;
+  --text: #ececf4;
+  --muted: #9a9ab5;
+  --accent: #7c7cf0;
+  --danger: #f06a80;
+  --success: #3ecf7a;
+  --site: #f0b429;
+  --food: #f06595;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text); min-height: 100vh; }

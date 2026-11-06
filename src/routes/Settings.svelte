@@ -3,11 +3,19 @@
   import { MAX_TIMER, MIN_TIMER, settings, type Content } from '../lib/settings.svelte'
   import { INTERNET_ENABLED } from '../lib/config'
   import { dataStore } from '../lib/store.svelte'
+  import { theme } from '../lib/theme.svelte'
+  import type { ThemePref } from '../lib/theme'
 
   const contents: { id: Content; label: string }[] = [
     { id: 'movie', label: 'Movies' },
     { id: 'tv', label: 'TV shows' },
     { id: 'both', label: 'Both' },
+  ]
+
+  const themes: { id: ThemePref; label: string }[] = [
+    { id: 'system', label: 'System' },
+    { id: 'light', label: 'Light' },
+    { id: 'dark', label: 'Dark' },
   ]
 </script>
 
@@ -50,6 +58,19 @@
     onchange={(e) => settings.setMovieTimer(e.currentTarget.valueAsNumber)}
   />
   <small>Between {MIN_TIMER} and {MAX_TIMER}. Applies from the next round.</small>
+</section>
+
+<section>
+  <span class="label" id="theme-label">Theme</span>
+  <div class="choices" role="radiogroup" aria-labelledby="theme-label">
+    {#each themes as t (t.id)}
+      <label class="choice">
+        <input type="radio" name="theme" value={t.id} checked={theme.pref === t.id} onchange={() => theme.set(t.id)} />
+        {t.label}
+      </label>
+    {/each}
+  </div>
+  <small>System follows your device setting.</small>
 </section>
 
 {#if INTERNET_ENABLED}

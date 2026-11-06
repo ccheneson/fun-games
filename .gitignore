@@ -25,3 +25,6 @@ dist-ssr
 
 # Natural Earth downloads and generated previews (scripts/country)
 .cache
+
+# Local planning notes
+plan/
