@@ -277,8 +277,6 @@
   .target { cursor: pointer; outline: none; }
   .target.placed { cursor: default; }
   .hit { fill: transparent; }
-  .board { --site: #d98e04; --food: #d6336c; }
-  @media (prefers-color-scheme: dark) { .board { --site: #f0b429; --food: #f06595; } }
   .dot.diamond { fill: var(--site); }
   .origin.site { color: var(--site); }
   .origin { display: block; font-size: 0.85rem; color: var(--food); font-weight: 600; margin-top: 0.15rem; }

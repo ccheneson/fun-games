@@ -9,6 +9,9 @@ A small backend-less SPA (Svelte 5 + Vite + TypeScript) with a menu of games.
   (accented vowels count as their base vowel). Type your guess before the timer
   (default 10 s, configurable in Settings) hits 0. Then the full title and poster are shown.
 
+Light and dark mode: the header button (🌙 / ☀️) switches theme; Settings → **Theme** also offers
+System (follows the device, the default). The choice is stored in `localStorage` (`fun-games:theme`).
+
 ## Data
 No API key. On first load the app fetches ~80 French movie titles from **Wikidata** and
 their posters (250 px thumbnails) from **Wikimedia Commons**, and stores them in
