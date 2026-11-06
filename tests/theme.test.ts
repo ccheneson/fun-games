@@ -53,9 +53,9 @@ describe('parseThemePref', () => {
     expect(parseThemePref('system')).toBe('system')
   })
   it.each([null, undefined, '', 'System', 'LIGHT', 'blue', 123, {}, [], true])(
-    'falls back to system for %j',
+    'falls back to light for %j',
     (raw) => {
-      expect(parseThemePref(raw)).toBe('system')
+      expect(parseThemePref(raw)).toBe('light')
     },
   )
 })
@@ -81,33 +81,33 @@ describe('toggledPref', () => {
 })
 
 describe('loadThemePref / saveThemePref', () => {
-  it('returns system when nothing is stored or storage is undefined', () => {
-    expect(loadThemePref(fakeStorage())).toBe('system')
-    expect(loadThemePref(undefined)).toBe('system')
+  it('returns light when nothing is stored or storage is undefined', () => {
+    expect(loadThemePref(fakeStorage())).toBe('light')
+    expect(loadThemePref(undefined)).toBe('light')
   })
-  it('round-trips light and dark under THEME_KEY', () => {
+  it('round-trips dark and system under THEME_KEY', () => {
     const s = fakeStorage()
     saveThemePref(s, 'dark')
     expect(s.data.get(THEME_KEY)).toBe('dark')
     expect(loadThemePref(s)).toBe('dark')
-    saveThemePref(s, 'light')
-    expect(s.data.get(THEME_KEY)).toBe('light')
-    expect(loadThemePref(s)).toBe('light')
+    saveThemePref(s, 'system')
+    expect(s.data.get(THEME_KEY)).toBe('system')
+    expect(loadThemePref(s)).toBe('system')
   })
-  it('saving system removes the key', () => {
+  it('saving light (the default) removes the key', () => {
     const s = fakeStorage()
     saveThemePref(s, 'dark')
-    saveThemePref(s, 'system')
+    saveThemePref(s, 'light')
     expect(s.data.has(THEME_KEY)).toBe(false)
-    expect(loadThemePref(s)).toBe('system')
+    expect(loadThemePref(s)).toBe('light')
   })
-  it('treats garbage stored values as system', () => {
+  it('treats garbage stored values as light', () => {
     const s = fakeStorage()
     s.data.set(THEME_KEY, 'purple')
-    expect(loadThemePref(s)).toBe('system')
+    expect(loadThemePref(s)).toBe('light')
   })
   it('does not throw when storage throws', () => {
-    expect(loadThemePref(throwing)).toBe('system')
+    expect(loadThemePref(throwing)).toBe('light')
     expect(() => saveThemePref(throwing, 'dark')).not.toThrow()
     expect(() => saveThemePref(throwing, 'system')).not.toThrow()
   })

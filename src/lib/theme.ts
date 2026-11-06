@@ -9,9 +9,12 @@ export type ThemePref = 'system' | 'light' | 'dark'
 /** The theme actually shown. */
 export type Theme = 'light' | 'dark'
 
-/** Stored data is untrusted: anything other than 'light' or 'dark' means 'system'. */
+/** Light is the default. */
+export const DEFAULT_THEME_PREF: ThemePref = 'light'
+
+/** Stored data is untrusted: anything that is not a known preference means the default (light). */
 export function parseThemePref(raw: unknown): ThemePref {
-  return raw === 'light' || raw === 'dark' ? raw : 'system'
+  return raw === 'light' || raw === 'dark' || raw === 'system' ? raw : DEFAULT_THEME_PREF
 }
 
 export function resolveTheme(pref: ThemePref, systemDark: boolean): Theme {
@@ -29,14 +32,14 @@ export function loadThemePref(storage: Pick<Storage, 'getItem'> | undefined): Th
     return parseThemePref(storage?.getItem(THEME_KEY))
   } catch {
     // Private mode / blocked storage.
-    return 'system'
+    return DEFAULT_THEME_PREF
   }
 }
 
-/** 'system' is the default, so it removes the key instead of storing it. */
+/** The default (light) removes the key instead of storing it. */
 export function saveThemePref(storage: Pick<Storage, 'setItem' | 'removeItem'> | undefined, pref: ThemePref): void {
   try {
-    if (pref === 'system') storage?.removeItem(THEME_KEY)
+    if (pref === DEFAULT_THEME_PREF) storage?.removeItem(THEME_KEY)
     else storage?.setItem(THEME_KEY, pref)
   } catch {
     // ignore
