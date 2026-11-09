@@ -3,8 +3,11 @@
 A small backend-less SPA (Svelte 5 + Vite + TypeScript) with a menu of games.
 
 ## Games
-- **Guess the poster**: the poster of a movie or TV show is revealed line by line, from blurry to
-  clear; the sooner you guess, the more points. 1 or 2 players; choose movies, TV shows or both.
+- **Guess the poster**: the poster of a movie or TV show is revealed from blurry or pixelated to
+  clear; the sooner you guess, the more points. Each round picks one of three transitions at random:
+  line by line from the top, line by line from the bottom (both with a blur), or **mosaic** (the
+  whole poster in big square tiles that shrink until it is sharp). 1 or 2 players; choose movies,
+  TV shows or both.
 - **Guess the title**: a French movie title is shown with its vowels replaced by `_`
   (accented vowels count as their base vowel). Type your guess before the timer
   (default 10 s, configurable in Settings) hits 0. Then the full title and poster are shown.
