@@ -40,7 +40,7 @@ export const content: CountryContent = {
   The `city` field is **shown to the player** ("Monument · Rabat"): use a real, readable town name, never a note like "(ruines)".
   (Paris has the Eiffel Tower, not also Sacré-Cœur.) A site may be in a commune that is also in `cities`.
 - Spread across the country, not only the capital region. Use the site's own coordinates (Wikidata), not the city centre.
-- Aim for 50, but any number works, even none: if you cannot find enough well-sourced landmarks, stop at the count you have rather than pad.
+- Aim for 50, but any number works, even none: if you cannot find enough well-sourced landmarks, stop at the count you have rather than pad. With none, leave "monuments" out of the `meta.ts` title.
   Name = how people say it in the legend language, with its article if the language uses one.
 
 ## Foods (culinary specialties, about 30, optional)
@@ -51,14 +51,14 @@ export const content: CountryContent = {
 - Origins are often legends or disputed: say so in the fact ("selon la légende", "attribué à", "serait né"), and use the
   official origin (AOP/IGP or national equivalent) only when sourced. Verify the town of origin, any date and any label.
 - Coordinates of the town (Wikidata), `lat` then `lon`. Beware homonyms (Munster, Lyon…): check the country and the region.
-- Fewer than 30, or none, is fine; carry on with what you have.
+- Fewer than 30, or none, is fine; carry on with what you have. With none, leave "spécialités" out of the `meta.ts` title.
 
 ## Rivers
 
 - Every river id of `map.ts` needs `{ name, fact }`; no extra ids.
 - `name`: the name in the legend language, with article where the language has one (« La Loire », « L'Allier », « Le Rhône »).
 - Rivers the map data lacks entirely (e.g. the Oise, the Isère in France) cannot be added by hand: the courses come from the
-  generated map. They are simply absent.
+  generated map. They are simply absent. With no river at all, leave "rivières" out of the `meta.ts` title.
 
 ## Facts
 

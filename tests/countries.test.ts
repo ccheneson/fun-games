@@ -39,6 +39,18 @@ describe.each(COUNTRIES.map((c) => [c.meta.id, c] as const))('country %s', (_id,
     expect(entry.meta.description.trim()).not.toBe('')
   })
 
+  it('names in the menu card only the kinds that have items (count above 0)', () => {
+    const present = {
+      city: country.cities.length > 0,
+      site: country.sites.length > 0,
+      river: country.map.rivers.length > 0,
+      food: (country.foods ?? []).length > 0,
+    }
+    const card = `${entry.meta.name} ${entry.meta.description}`.toLowerCase()
+    for (const [kind, label] of Object.entries(country.strings.kindNames) as [keyof typeof present, string][])
+      expect(card.includes(label.toLowerCase()), `menu card ${present[kind] ? 'lacks' : 'names'} "${label}" (${kind}: ${present[kind] ? 'has items' : 'none'})`).toBe(present[kind])
+  })
+
   it('has no leftover TODO from the scaffold, and translated texts when the language is not English', () => {
     expect(JSON.stringify([country.name, country.cities, country.sites, country.foods, country.rivers, country.strings, entry.meta])).not.toMatch(/TODO/)
     if (country.lang !== 'en') expect(country.strings.hint, 'strings still in English').not.toBe(makeStrings('en', country.name).hint)

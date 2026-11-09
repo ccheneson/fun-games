@@ -70,8 +70,12 @@ what makes the game playable (at least 8 cities, enforced by the tests). Say wha
    - `name`: the country's name in the legend language.
    - For a language other than `fr`/`en`: translate the whole `strings` object (keep the `{placeholders}` and `{link}`; `lead` is one short line that fits on a phone, and each `legend` entry is a symbol ● ◆ ▬ ■ plus one short word), and the
      `name`/`description` in `meta.ts`. That includes `originLabel` (with `{place}`) and `siteOriginLabel` (with `{place}`).
-   - Keep the menu card in `meta.ts` in sync with what you wrote: list only the kinds the country has (no "rivières" without rivers,
-     no "spécialités" without specialties, no "monuments" without landmarks). The in-game title and legend adapt by themselves.
+   - **Write `meta.ts` last, from the final counts**, once verification has dropped or kept items. A kind (cities, landmarks,
+     specialties, rivers) appears in the menu card `name` and `description` **only if its count is above 0**: no "rivières"
+     with 0 rivers, no "spécialités" with 0 foods, no "monuments" with 0 sites, no "villes" with 0 cities. Use the plural
+     kind words of `strings.kindNames` (the test looks for them). Order: cities, landmarks, rivers, specialties, joined in the
+     legend language ("A, B et C"; a single kind has no "et"). Example: 12 cities, 9 sites, 0 rivers, 4 foods gives
+     `Japon : villes, monuments et spécialités`. The in-game title and legend already adapt by themselves.
    - **Verify with sources** (WebSearch / WebFetch on Wikipedia or Wikidata): the population ranking, every coordinate,
      and every number, date or superlative in a fact. Fix or drop what you cannot confirm. Do not keep a fact you are unsure of.
    - **If a search or fetch fails** (site unreachable, nothing found), try another source once; if it still fails, carry on:
@@ -81,18 +85,21 @@ what makes the game playable (at least 8 cities, enforced by the tests). Say wha
 6. **Verify the build.** Run `npm run check`, `npm test` and `npm run build`. The generic tests (`tests/countries.test.ts`)
    check the minimum to play, one site per city, one specialty per place, unique names, complete texts, no leftover `TODO`, and that every city and landmark lies
    on the country (this catches swapped latitude/longitude). Fix what they report; do not weaken the tests.
+   Every kind named in the `meta.ts` `name`/`description` must have a count above 0, and every kind with a count above 0 must be named
+   (a test checks it).
    Then look at the real game: `npx vite preview --port 4199`, and screenshot `http://localhost:4199/#/map/<id>` with headless
    Chrome at ~1100 px and ~500 px wide, a few times (rounds are random). The tests print a warning for each count below its
    target: that is expected, not an error. Check markers sit on the right places, labels are
    readable and not cut off, rivers highlight correctly. Stop the preview server afterwards.
 
 7. **Report** briefly: the country, id, language, and the counts against the targets (cities / sites / specialties / rivers) with the reason
-   for every shortfall (e.g. only 7 rivers in the map data, 38 landmarks found with reliable sources, a failed fetch);
+   for every shortfall (e.g. only 7 rivers in the map data, 38 landmarks found with reliable sources, a failed fetch), and which kinds were left out of the menu title because their count is 0;
    which facts and coordinates were verified against sources and which could not be; limitations seen (stretched map, few rivers,
    overseas territories left out); that nothing is committed. Offer to commit and open a PR.
 
 ## Rules
 
+- Titles list only the kinds present: a type goes in the menu title and description only when its count is above 0.
 - Work on the current branch; do not commit or push unless asked.
 - Coordinates are decimal degrees, `lat` then `lon`, 4 decimals. Latitude/longitude swaps are the most common mistake.
 - One short, factual sentence per fact, in the legend language. Hedge when unsure ("environ", "souvent présenté comme").
