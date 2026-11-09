@@ -3,7 +3,9 @@
   import ContentPicker from '../components/ContentPicker.svelte'
   import { shuffle } from '../lib/db/seed'
   import { focusGuess } from '../lib/focus'
-  import { BANDS, bandAt, blurAt, blurPx, pointsAt, pointsForBand } from '../lib/games/points'
+  import MosaicPoster from '../components/MosaicPoster.svelte'
+  import { pickTransition, type Transition } from '../lib/games/mosaic'
+  import { BANDS, bandAt, blurPx, levelAt, pointsAt, pointsForBand } from '../lib/games/points'
   import type { Title } from '../lib/providers/types'
   import { settings } from '../lib/settings.svelte'
   import { sources } from '../lib/sources'
@@ -17,8 +19,11 @@
   let phase = $state<Phase>('idle')
   let guess = $state('')
   let fraction = $state(0)
-  /** 'down' = revealed from the top, 'up' = from the bottom (random each round). */
-  let direction = $state<'down' | 'up'>('down')
+  /**
+   * Random each round: 'down' = revealed from the top, 'up' = from the bottom (both blurry to clear),
+   * 'mosaic' = whole poster, pixelated into big tiles that shrink until it is clear.
+   */
+  let transition = $state<Transition>('down')
   let wonBand = $state(-1)
   let wonBy = $state<number | null>(null)
   let roundPoints = $state(0)
@@ -43,18 +48,22 @@
   let stopTimer: (() => void) | null = null
   let wrongTimeout: ReturnType<typeof setTimeout> | undefined
 
-  // Band 0 (100 points) is always where the reveal starts, so the list flips with the direction.
+  // Band 0 (100 points) is always where the reveal starts, so the list flips for 'up' (mosaic: top down).
   const bands = $derived.by(() => {
     const list = Array.from({ length: BANDS }, (_, i) => ({ i, points: pointsForBand(i) }))
-    return direction === 'up' ? list.reverse() : list
+    return transition === 'up' ? list.reverse() : list
   })
   const playing = $derived(phase === 'playing')
   const canGuess = $derived(playing && (players === 1 || active !== null))
   const nameOf = (i: number) => names[i].trim() || `Player ${i + 1}`
   const sameNames = $derived(nameOf(0).toLowerCase() === nameOf(1).toLowerCase())
-  const revealPct = $derived(phase === 'playing' ? fraction * 100 : phase === 'loading' ? 0 : 100)
-  // Blurry (100) to clear (10) over the round; the finished poster is shown sharp.
-  const blur = $derived(phase === 'playing' ? blurPx(blurAt(fraction)) : 0)
+  const mosaic = $derived(phase === 'playing' && transition === 'mosaic')
+  const revealPct = $derived(
+    phase === 'playing' && transition !== 'mosaic' ? fraction * 100 : phase === 'loading' ? 0 : 100,
+  )
+  // 100 (blurry / big tiles) to 10 (clear) over the round; the finished poster is shown sharp.
+  const level = $derived(levelAt(fraction))
+  const blur = $derived(phase === 'playing' && transition !== 'mosaic' ? blurPx(level) : 0)
   const activeBand = $derived(phase === 'playing' ? bandAt(fraction) : phase === 'found' ? wonBand : -1)
   const available = $derived(dataStore.imdbCount)
 
@@ -94,7 +103,7 @@
     wrong = false
     active = null
     fraction = 0
-    direction = Math.random() < 0.5 ? 'down' : 'up'
+    transition = pickTransition(Math.random())
     wonBand = -1
     wonBy = null
     roundPoints = 0
@@ -244,13 +253,15 @@
 
   <div class="stage">
     <div class="poster" role="img" tabindex="-1" bind:this={posterEl} aria-label={phase === 'playing' || phase === 'loading' ? 'Poster being revealed' : 'Poster of ' + current.title}>
-      {#if current.posterUrl && phase !== 'loading'}
+      {#if current.posterUrl && mosaic}
+        <MosaicPoster src={current.posterUrl} {level} />
+      {:else if current.posterUrl && phase !== 'loading'}
         <img
           src={current.posterUrl}
           alt=""
           referrerpolicy="no-referrer"
           style:filter={blur > 0 ? `blur(${blur}px)` : 'none'}
-          style:clip-path={direction === 'down'
+          style:clip-path={transition !== 'up'
             ? `inset(0 0 ${100 - revealPct}% 0)`
             : `inset(${100 - revealPct}% 0 0 0)`}
         />
@@ -258,7 +269,7 @@
       {#if phase === 'loading'}<span class="wait">…</span>{/if}
     </div>
 
-    <ol class="bands" class:up={direction === 'up'} data-direction={direction} aria-label="Points by position">
+    <ol class="bands" class:up={transition === 'up'} data-direction={transition} aria-label="Points by position">
       {#each bands as band, row (row)}
         <li class:active={band.i === activeBand} class:past={playing && band.i < activeBand}>
           {band.points}

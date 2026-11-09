@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bandAt, blurAt, pointsAt, pointsForBand } from '../src/lib/games/points'
+import { bandAt, blurAt, levelAt, pointsAt, pointsForBand } from '../src/lib/games/points'
 
 describe('points', () => {
   it('is worth 100 in the first tenth and 10 in the last', () => {
@@ -26,5 +26,13 @@ describe('blur', () => {
     expect(blurAt(0.5)).toBe(55)
     expect(blurAt(NaN)).toBe(100)
     expect(blurAt(2)).toBe(10)
+  })
+})
+
+describe('levelAt', () => {
+  it('is the neutral name of blurAt', () => {
+    for (const f of [0, 0.25, 0.5, 1, NaN, 2]) expect(levelAt(f)).toBe(blurAt(f))
+    expect(levelAt(0)).toBe(100)
+    expect(levelAt(1)).toBe(10)
   })
 })

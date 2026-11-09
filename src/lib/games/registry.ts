@@ -25,7 +25,7 @@ export const games: GameDef[] = [
   {
     id: 'guess-movie',
     name: 'Guess the poster',
-    description: 'The poster appears line by line, from blurry to clear. The sooner you guess the movie or show, the more points.',
+    description: 'The poster appears line by line or as a mosaic, from blurry or pixelated to clear. The sooner you guess the movie or show, the more points.',
     emoji: '🖼️',
     route: '/guess-movie',
     load: () => import('../../routes/GuessMovie.svelte'),

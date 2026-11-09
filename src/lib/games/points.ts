@@ -21,11 +21,17 @@ export const BLUR_MAX = 100 // fully blurry
 export const BLUR_MIN = 10 // clear
 const BLUR_PX_PER_LEVEL = 0.1 // level 100 = 10px, level 10 = 1px
 
-/** Blur level (100 = fully blurry, 10 = clear) for a revealed fraction between 0 and 1. */
-export function blurAt(fraction: number): number {
+/**
+ * Obscuring level (100 = fully hidden, 10 = clear) for a revealed fraction between 0 and 1.
+ * Drives both the blur and the mosaic transitions.
+ */
+export function levelAt(fraction: number): number {
   const f = Number.isFinite(fraction) ? Math.min(1, Math.max(0, fraction)) : 0
   return BLUR_MAX - (BLUR_MAX - BLUR_MIN) * f
 }
+
+/** Blur level for a revealed fraction (same as levelAt, kept for the blur transitions). */
+export const blurAt = levelAt
 
 /** CSS blur radius in pixels for a blur level. */
 export function blurPx(level: number): number {
