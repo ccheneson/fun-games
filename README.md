@@ -11,6 +11,12 @@ A small backend-less SPA (Svelte 5 + Vite + TypeScript) with a menu of games.
 - **Guess the title**: a French movie title is shown with its vowels replaced by `_`
   (accented vowels count as their base vowel). Type your guess before the timer
   (default 10 s, configurable in Settings) hits 0. Then the full title and poster are shown.
+- **Opposite title**: a movie or TV-show title is shown with its main words turned into their
+  opposite ("Le Roi Lion" → "Le Valet Agneau", "Breaking Bad" → "Fixing Good"); type the real title.
+  The points bar drops from 100 to 10 over the timer (default 10 s, configurable in Settings); the
+  poster is shown at the end. 1 or 2 players; movies, TV shows or both; French titles, non-French
+  titles or both. The opposites are hand-curated in `src/lib/games/opposites/data.ts` (each entry
+  points to a row of the IMDb / TV CSVs for its poster).
 
 Light and dark mode: the header button (🌙 / ☀️) switches theme; Settings → **Theme** also offers
 System (follows the device); Light is the default. The choice is stored in `localStorage` (`fun-games:theme`).

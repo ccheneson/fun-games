@@ -37,3 +37,9 @@ export const blurAt = levelAt
 export function blurPx(level: number): number {
   return level * BLUR_PX_PER_LEVEL
 }
+
+/** Points still on offer with `left` ms of a `duration` ms round (100 at start, 10 at the end). */
+export function pointsLeft(left: number, duration: number): number {
+  // (duration - left) / duration, not 1 - left / duration: avoids 1 - 0.9 = 0.0999… at band edges.
+  return pointsAt(duration > 0 ? (duration - left) / duration : 1)
+}

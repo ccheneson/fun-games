@@ -7,13 +7,24 @@ export const MAX_TIMER = 60
 
 export type SourceId = 'internet' | 'imdb'
 export type Content = 'movie' | 'tv' | 'both'
+/** Language of the titles in "Opposite title": French titles, non-French titles or both. */
+export type LangFilter = 'fr' | 'other' | 'both'
 
 function clampTimer(n: number): number {
   if (!Number.isFinite(n)) return DEFAULT_TIMER
   return Math.min(MAX_TIMER, Math.max(MIN_TIMER, Math.round(n)))
 }
 
-function load(): { timerSeconds: number; movieTimerSeconds: number; source: SourceId; content: Content } {
+interface Stored {
+  timerSeconds: number
+  movieTimerSeconds: number
+  oppositeTimerSeconds: number
+  source: SourceId
+  content: Content
+  titleLang: LangFilter
+}
+
+function load(): Stored {
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(KEY) ?? '{}')
     // Stored data is untrusted: anything that isn't a plain object is ignored.
@@ -22,11 +33,20 @@ function load(): { timerSeconds: number; movieTimerSeconds: number; source: Sour
     return {
       timerSeconds: clampTimer(Number(raw.timerSeconds ?? DEFAULT_TIMER)),
       movieTimerSeconds: clampTimer(Number(raw.movieTimerSeconds ?? DEFAULT_TIMER)),
+      oppositeTimerSeconds: clampTimer(Number(raw.oppositeTimerSeconds ?? DEFAULT_TIMER)),
       source: INTERNET_ENABLED && raw.source === 'internet' ? 'internet' : 'imdb',
       content: raw.content === 'movie' || raw.content === 'tv' ? raw.content : 'both',
+      titleLang: raw.titleLang === 'fr' || raw.titleLang === 'other' ? raw.titleLang : 'both',
     }
   } catch {
-    return { timerSeconds: DEFAULT_TIMER, movieTimerSeconds: DEFAULT_TIMER, source: 'imdb', content: 'both' }
+    return {
+      timerSeconds: DEFAULT_TIMER,
+      movieTimerSeconds: DEFAULT_TIMER,
+      oppositeTimerSeconds: DEFAULT_TIMER,
+      source: 'imdb',
+      content: 'both',
+      titleLang: 'both',
+    }
   }
 }
 
@@ -35,17 +55,23 @@ class Settings {
   timerSeconds = $state(this.initial.timerSeconds)
   /** Time to fully reveal the poster in "Guess the poster". */
   movieTimerSeconds = $state(this.initial.movieTimerSeconds)
+  /** Time per title in "Opposite title". */
+  oppositeTimerSeconds = $state(this.initial.oppositeTimerSeconds)
   source = $state<SourceId>(this.initial.source)
   /** What to guess: movies, TV shows or both (IMDb source). */
   content = $state<Content>(this.initial.content)
+  /** Which titles in "Opposite title": French, non-French or both. */
+  titleLang = $state<LangFilter>(this.initial.titleLang)
 
   private save() {
     try {
       localStorage.setItem(KEY, JSON.stringify({
           timerSeconds: this.timerSeconds,
           movieTimerSeconds: this.movieTimerSeconds,
+          oppositeTimerSeconds: this.oppositeTimerSeconds,
           source: this.source,
           content: this.content,
+          titleLang: this.titleLang,
         }))
     } catch {
       // ignore
@@ -59,6 +85,16 @@ class Settings {
 
   setMovieTimer(value: number) {
     this.movieTimerSeconds = clampTimer(value)
+    this.save()
+  }
+
+  setOppositeTimer(value: number) {
+    this.oppositeTimerSeconds = clampTimer(value)
+    this.save()
+  }
+
+  setTitleLang(value: LangFilter) {
+    this.titleLang = value === 'fr' || value === 'other' ? value : 'both'
     this.save()
   }
 
