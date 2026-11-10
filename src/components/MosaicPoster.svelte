@@ -2,8 +2,9 @@
   import { coverCrop, mosaicCells, mosaicRows } from '../lib/games/mosaic'
 
   /**
-   * Pixelated poster for an obscuring `level` (100 = big tiles, 10 = one tile per device pixel,
-   * i.e. clear). Draws nothing until the image is loaded.
+   * Pixelated poster for an obscuring `level` (100 = big tiles; tiles shrink slowly and the poster
+   * is only almost clear in the last points band, the same at any devicePixelRatio; 10 = one tile
+   * per device pixel, i.e. fully sharp). Draws nothing until the image is loaded.
    */
   let { src, level }: { src: string; level: number } = $props()
 
