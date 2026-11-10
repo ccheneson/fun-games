@@ -64,4 +64,7 @@ button.toggle[aria-pressed='true'] {
   border-color: var(--success);
   color: #fff;
 }
-button.toggle[aria-pressed='true']::before { content: '✓ '; }
+/* The check mark's space is always reserved (hidden when unselected), so selecting a button
+   does not change its width and the neighbouring buttons stay put. */
+button.toggle::before { content: '✓ '; visibility: hidden; }
+button.toggle[aria-pressed='true']::before { visibility: visible; }
