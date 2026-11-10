@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MOSAIC_MIN_CELLS, coverCrop, mosaicCells, mosaicRows, pickTransition } from '../src/lib/games/mosaic'
+import { MOSAIC_CLEAR_CELLS, MOSAIC_MIN_CELLS, coverCrop, mosaicCells, mosaicRows, pickTransition } from '../src/lib/games/mosaic'
 
 const LEVELS = [100, 90, 80, 70, 60, 50, 40, 30, 20, 10]
 
@@ -31,6 +31,62 @@ describe('mosaicCells', () => {
       expect(c).toBeLessThanOrEqual(3)
     }
     expect(mosaicCells(100, 0)).toBeGreaterThanOrEqual(1)
+  })
+})
+
+const BAND_STARTS = [100, 91, 82, 73, 64, 55, 46, 37, 28, 19]
+
+describe('mosaicCells slower curve (issue #11)', () => {
+  it('has a fixed clear ceiling of 160 and an exact curve at band starts', () => {
+    expect(MOSAIC_CLEAR_CELLS).toBe(160)
+    expect(BAND_STARTS.map((l) => mosaicCells(l, 600))).toEqual([8, 11, 15, 20, 27, 36, 48, 65, 88, 119])
+  })
+  it('is still pixelated in the 40-point band', () => {
+    for (const l of [46, 41.5, 37]) {
+      expect(mosaicCells(l, 900)).toBeLessThanOrEqual(65)
+      expect(mosaicCells(l, 900)).toBeLessThanOrEqual(MOSAIC_CLEAR_CELLS * 0.45)
+    }
+  })
+  it('is almost clear only in the 10-point band', () => {
+    expect(mosaicCells(19, 900)).toBeGreaterThanOrEqual(110)
+    expect(mosaicCells(28, 900)).toBeLessThan(100)
+    const c = mosaicCells(10.5, 900)
+    expect(c).toBeGreaterThanOrEqual(150)
+    expect(c).toBeLessThanOrEqual(160)
+  })
+  it('does not depend on the canvas resolution (mobile dpr)', () => {
+    for (const l of [...BAND_STARTS, 15, 10.5]) {
+      const a = mosaicCells(l, 240)
+      expect(mosaicCells(l, 720)).toBe(a)
+      expect(mosaicCells(l, 1800)).toBe(a)
+    }
+  })
+  it('is fully clear at the end', () => {
+    expect(mosaicCells(10, 720)).toBe(720)
+    expect(mosaicCells(-20, 1800)).toBe(1800)
+  })
+  it('never has more tiles than pixels on a tiny canvas', () => {
+    let prev = 0
+    for (const l of BAND_STARTS) {
+      const c = mosaicCells(l, 100)
+      expect(c).toBeLessThanOrEqual(100)
+      expect(c).toBeGreaterThanOrEqual(prev)
+      prev = c
+    }
+    expect(mosaicCells(100, 100)).toBe(8)
+    expect(mosaicCells(19, 100)).toBe(78)
+    expect(mosaicCells(10, 100)).toBe(100)
+    prev = 0
+    for (const l of [...BAND_STARTS, 10]) {
+      const c = mosaicCells(l, 5)
+      expect(c).toBeGreaterThanOrEqual(1)
+      expect(c).toBeLessThanOrEqual(5)
+      expect(c).toBeGreaterThanOrEqual(prev)
+      prev = c
+    }
+  })
+  it('stays at or below MOSAIC_CLEAR_CELLS before the end', () => {
+    for (let l = 99; l >= 11; l--) expect(mosaicCells(l, 2000)).toBeLessThanOrEqual(MOSAIC_CLEAR_CELLS)
   })
 })
 
