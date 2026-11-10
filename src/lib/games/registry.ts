@@ -42,4 +42,12 @@ export const games: GameDef[] = [
       props: async () => ({ country: (await load()).default }),
     }),
   ),
+  {
+    id: 'opposite-title',
+    name: 'Opposite title',
+    description: 'The main words of the title are turned into their opposites. Find the real movie or show before the points run out.',
+    emoji: '🔄',
+    route: '/opposite-title',
+    load: () => import('../../routes/GuessOpposite.svelte'),
+  },
 ]

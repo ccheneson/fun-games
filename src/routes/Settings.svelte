@@ -1,6 +1,6 @@
 <script lang="ts">
   import Progress from '../components/Progress.svelte'
-  import { MAX_TIMER, MIN_TIMER, settings, type Content } from '../lib/settings.svelte'
+  import { MAX_TIMER, MIN_TIMER, settings, type Content, type LangFilter } from '../lib/settings.svelte'
   import { INTERNET_ENABLED } from '../lib/config'
   import { dataStore } from '../lib/store.svelte'
   import { theme } from '../lib/theme.svelte'
@@ -9,6 +9,12 @@
   const contents: { id: Content; label: string }[] = [
     { id: 'movie', label: 'Movies' },
     { id: 'tv', label: 'TV shows' },
+    { id: 'both', label: 'Both' },
+  ]
+
+  const langs: { id: LangFilter; label: string }[] = [
+    { id: 'fr', label: 'French' },
+    { id: 'other', label: 'Non-French' },
     { id: 'both', label: 'Both' },
   ]
 
@@ -31,7 +37,7 @@
       </label>
     {/each}
   </div>
-  <small>Applies to both games, from the next round.</small>
+  <small>Applies to every movie game, from the next round.</small>
 </section>
 
 <section>
@@ -58,6 +64,32 @@
     onchange={(e) => settings.setMovieTimer(e.currentTarget.valueAsNumber)}
   />
   <small>Between {MIN_TIMER} and {MAX_TIMER}. Applies from the next round.</small>
+</section>
+
+<section>
+  <label for="opposite-timer">Opposite title: timer per title (seconds)</label>
+  <input
+    id="opposite-timer"
+    type="number"
+    min={MIN_TIMER}
+    max={MAX_TIMER}
+    value={settings.oppositeTimerSeconds}
+    onchange={(e) => settings.setOppositeTimer(e.currentTarget.valueAsNumber)}
+  />
+  <small>Between {MIN_TIMER} and {MAX_TIMER}. Applies from the next round.</small>
+</section>
+
+<section>
+  <span class="label" id="lang-label">Titles (Opposite title)</span>
+  <div class="choices" role="radiogroup" aria-labelledby="lang-label">
+    {#each langs as l (l.id)}
+      <label class="choice">
+        <input type="radio" name="title-lang" value={l.id} checked={settings.titleLang === l.id} onchange={() => settings.setTitleLang(l.id)} />
+        {l.label}
+      </label>
+    {/each}
+  </div>
+  <small>Language of the title to find. Applies from the next round.</small>
 </section>
 
 <section>
