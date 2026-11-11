@@ -4,12 +4,15 @@ import {
   COLS,
   FINAL_COLS,
   FINAL_SIZE,
+  MID_FRACTION,
+  MID_SIZE,
   ROWS,
   TILE_COUNT,
   TILE_H,
   TILE_W,
+  blendView,
   cameraTransform,
-  finalWindow,
+  easeCss,
   moveSelection,
   pickBoard,
   revealView,
@@ -68,17 +71,15 @@ function containsTile(view: { x: number; y: number; size: number }, index: numbe
 }
 
 describe('constants', () => {
-  it('makes a square board of 54 tiles', () => {
+  it('makes a square board of 70 tiles', () => {
     expect(COLS * TILE_W).toBe(ROWS * TILE_H)
     expect(BOARD).toBe(COLS * TILE_W)
-    expect(TILE_COUNT).toBe(54)
+    expect(TILE_COUNT).toBe(70)
     expect(TILE_COUNT).toBe(COLS * ROWS)
   })
-  it('has a final window of whole tiles (3 cols x 2 rows)', () => {
+  it('has a final window 3 cols wide (about 2 rows high)', () => {
     expect(FINAL_COLS).toBe(3)
     expect(FINAL_SIZE).toBe(FINAL_COLS * TILE_W)
-    expect(FINAL_SIZE % TILE_H).toBe(0)
-    expect(FINAL_SIZE / TILE_H).toBe(2)
   })
 })
 
@@ -186,7 +187,7 @@ describe('tileAt', () => {
     }
   })
   it('maps tile centres back under a zoomed view', () => {
-    const view = { x: 4, y: 3, size: 6 }
+    const view = { x: 14, y: 10, size: 21 }
     for (const i of visibleTiles(view)) {
       const r = tileRect(i)
       if (!containsTile(view, i)) continue
@@ -209,37 +210,22 @@ describe('tileAt', () => {
   })
 })
 
-describe('finalWindow', () => {
-  it('is a FINAL_SIZE square inside the board that contains the target tile, for every target and many rng values', () => {
+/** The zoom ends on the reveal view, centred on the target. */
+const finalWindow = (t: number, _rng?: () => number) => revealView(t)
+
+describe('final window', () => {
+  it('is a FINAL_SIZE square inside the board that contains the target tile, for every target', () => {
     for (let target = 0; target < TILE_COUNT; target++) {
-      for (const v of [0, 0.01, 0.25, 0.5, 0.75, 0.99, 0.999999]) {
-        const w = finalWindow(target, () => v)
-        expect(w.size).toBe(FINAL_SIZE)
-        expect(w.x).toBeGreaterThanOrEqual(0)
-        expect(w.y).toBeGreaterThanOrEqual(0)
-        expect(w.x + w.size).toBeLessThanOrEqual(BOARD + EPS)
-        expect(w.y + w.size).toBeLessThanOrEqual(BOARD + EPS)
-        expect(containsTile(w, target)).toBe(true)
-      }
-      const rng = seeded(target + 1)
-      for (let k = 0; k < 20; k++) {
-        const w = finalWindow(target, rng)
-        expect(w.size).toBe(FINAL_SIZE)
-        expect(inside(w, FULL)).toBe(true)
-        expect(containsTile(w, target)).toBe(true)
-      }
+      const w = finalWindow(target)
+      expect(w.size).toBe(FINAL_SIZE)
+      expect(inside(w, FULL)).toBe(true)
+      expect(containsTile(w, target)).toBe(true)
     }
-  })
-  it('does not always place the target at the same position in the window', () => {
-    const target = 3 * COLS + 4 // interior tile
-    const lo = finalWindow(target, () => 0)
-    const hi = finalWindow(target, () => 0.99)
-    expect(lo.x !== hi.x || lo.y !== hi.y).toBe(true)
   })
 })
 
 describe('viewAt', () => {
-  const finals = [0, 20, 31, 53, 8, 45].map((t) => ({ t, w: finalWindow(t, seeded(t + 7)) }))
+  const finals = [0, 20, 31, 69, 8, 45].map((t) => ({ t, w: finalWindow(t, seeded(t + 7)) }))
 
   it('starts on the full board and ends on the final window', () => {
     for (const { w } of finals) {
@@ -259,7 +245,7 @@ describe('viewAt', () => {
     expect(viewAt(7, w)).toEqual(viewAt(1, w))
     expect(viewAt(NaN, w)).toEqual(viewAt(0, w))
   })
-  it('shrinks strictly and geometrically', () => {
+  it('shrinks strictly', () => {
     const w = finals[1].w
     let prev = viewAt(0, w).size
     for (let i = 1; i <= 20; i++) {
@@ -267,9 +253,14 @@ describe('viewAt', () => {
       expect(s).toBeLessThan(prev)
       prev = s
     }
-    // geometric: halfway is the geometric mean, below the linear midpoint
-    expect(viewAt(0.5, w).size).toBeCloseTo(BOARD * Math.pow(FINAL_SIZE / BOARD, 0.5), 6)
-    expect(viewAt(0.5, w).size).toBeLessThan((BOARD + FINAL_SIZE) / 2)
+    // between the full board and the 40-point view
+    expect(viewAt(0.5, w).size).toBeGreaterThan(MID_SIZE)
+    expect(viewAt(0.5, w).size).toBeLessThan(BOARD)
+  })
+  it('shows a 6-tile-wide view at 40 points (60% of the round)', () => {
+    const w = finals[1].w
+    expect(viewAt(MID_FRACTION, w).size).toBeCloseTo(MID_SIZE, 9)
+    expect(MID_SIZE).toBe(6 * TILE_W)
   })
   it('nests: a later view is inside every earlier view', () => {
     for (const { w } of finals) {
@@ -320,10 +311,10 @@ describe('cameraTransform', () => {
     expect(c.ty).toBeCloseTo(0, 6)
   })
   it('has scale 1 on the final-size view', () => {
-    expect(cameraTransform({ x: 4, y: 3, size: FINAL_SIZE }, VP).scale).toBeCloseTo(1, 9)
+    expect(cameraTransform({ x: 14, y: 10, size: FINAL_SIZE }, VP).scale).toBeCloseTo(1, 9)
   })
   it('round-trips with tileAt (tx, ty are positive board-pixel offsets, applied as translate(-tx, -ty) after scale)', () => {
-    const views = [FULL, { x: 4, y: 3, size: 6 }, { x: 2.5, y: 1.25, size: 10 }, revealView(31)]
+    const views = [FULL, { x: 14, y: 10, size: 21 }, { x: 8.75, y: 4.4, size: 35 }, revealView(31)]
     const unitPx = boardPx / BOARD
     for (const view of views) {
       const { scale, tx, ty } = cameraTransform(view, VP)
@@ -342,21 +333,21 @@ describe('cameraTransform', () => {
 })
 
 describe('visibleTiles', () => {
-  it('returns all 54 tiles for the full view', () => {
+  it('returns all 70 tiles for the full view', () => {
     const v = visibleTiles(FULL)
     expect(v).toHaveLength(TILE_COUNT)
     expect([...v].sort((a, b) => a - b)).toEqual(Array.from({ length: TILE_COUNT }, (_, i) => i))
   })
-  it('returns exactly the 6 tiles of a tile-aligned final window', () => {
-    // x 4..10 = cols 2,3,4 ; y 3..9 = rows 1,2
-    const v = visibleTiles({ x: 4, y: 3, size: 6 })
-    expect([...v].sort((a, b) => a - b)).toEqual([11, 12, 13, 20, 21, 22])
+  it('returns exactly the tiles of a tile-aligned window', () => {
+    // x 14..34 = cols 2,3,4 ; y 10..30 = rows 1,2
+    const v = visibleTiles({ x: 14, y: 10, size: 20 })
+    expect([...v].sort((a, b) => a - b)).toEqual([12, 13, 14, 22, 23, 24])
   })
   it('includes partly visible tiles and excludes merely touching ones', () => {
-    const v = visibleTiles({ x: 5, y: 3, size: 6 }) // x 5..11: cols 2..5, col 5 spans 10..12 (partly)
-    expect(v).toContain(11)
+    const v = visibleTiles({ x: 15, y: 10, size: 20 }) // x 15..35: col 2 (14..21) is partly visible
+    expect(v).toContain(12)
     expect(v).toContain(14)
-    expect(v).not.toContain(10) // col 1 spans 2..4... ends at 4 < 5
+    expect(v).not.toContain(11) // col 1 ends at 14 < 15
   })
   it('always includes the target for a final window', () => {
     for (let t = 0; t < TILE_COUNT; t++) {
@@ -387,5 +378,42 @@ describe('moveSelection', () => {
   it('does not wrap across rows', () => {
     expect(moveSelection(COLS, 'ArrowLeft')).toBe(COLS)
     expect(moveSelection(2 * COLS - 1, 'ArrowRight')).toBe(2 * COLS - 1)
+  })
+})
+
+describe('glide helpers', () => {
+  const full = { x: 0, y: 0, size: BOARD }
+  const end = revealView(34)
+  it('blendView goes from one view to the other, clamped', () => {
+    expect(blendView(full, end, 0)).toEqual(full)
+    expect(blendView(full, end, 1)).toEqual(end)
+    expect(blendView(full, end, -1)).toEqual(full)
+    expect(blendView(full, end, 2)).toEqual(end)
+    const half = blendView(full, end, 0.5)
+    expect(half.size).toBeCloseTo((BOARD + FINAL_SIZE) / 2)
+    expect(half.x).toBeCloseTo(end.x / 2)
+  })
+  it('blendView between nested views stays nested (the answer stays in view while zooming in)', () => {
+    for (let p = 0; p <= 1; p += 0.1) {
+      const v = blendView(full, end, p)
+      expect(v.x).toBeLessThanOrEqual(end.x + 1e-9)
+      expect(v.y).toBeLessThanOrEqual(end.y + 1e-9)
+      expect(v.x + v.size).toBeGreaterThanOrEqual(end.x + end.size - 1e-9)
+      expect(v.y + v.size).toBeGreaterThanOrEqual(end.y + end.size - 1e-9)
+    }
+  })
+  it('easeCss matches CSS ease: 0 and 1 at the ends, monotone, known midpoints', () => {
+    expect(easeCss(0)).toBe(0)
+    expect(easeCss(1)).toBe(1)
+    expect(easeCss(-3)).toBe(0)
+    expect(easeCss(5)).toBe(1)
+    // cubic-bezier(0.25, 0.1, 0.25, 1) at t = 0.5 is about 0.8024
+    expect(easeCss(0.5)).toBeCloseTo(0.8024, 3)
+    let prev = 0
+    for (let t = 0.01; t <= 1; t += 0.01) {
+      const v = easeCss(t)
+      expect(v).toBeGreaterThanOrEqual(prev)
+      prev = v
+    }
   })
 })

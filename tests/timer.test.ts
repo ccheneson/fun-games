@@ -3,7 +3,7 @@ import { remainingMs, startCountdown, type CountdownEnv } from '../src/lib/timer
 
 function fakeEnv() {
   let time = 0
-  let pending: (() => void) | null = null
+  let pending: ((frameTime?: number) => void) | null = null
   const env: CountdownEnv = {
     now: () => time,
     raf: (cb) => ((pending = cb), 1),
@@ -11,11 +11,11 @@ function fakeEnv() {
   }
   return {
     env,
-    advance(ms: number) {
+    advance(ms: number, frameTime?: number) {
       time += ms
       const cb = pending
       pending = null
-      cb?.()
+      cb?.(frameTime)
     },
   }
 }
@@ -34,6 +34,16 @@ describe('timer', () => {
     advance(100)
     expect(ticks).toEqual([1000, 600, 0])
     expect(ended).toBe(1)
+  })
+  it('ticks with the frame timestamp when the environment passes one', () => {
+    const { env, advance } = fakeEnv()
+    const ticks: number[] = []
+    startCountdown(1000, (r) => ticks.push(r), () => {}, env)
+    // The callback runs late (now = 420) but the frame started at 400.
+    advance(420, 400)
+    // A frame that began just before the countdown started never reports more than the duration.
+    advance(0, -5)
+    expect(ticks).toEqual([1000, 600, 1000])
   })
   it('does not fire onEnd after cancel', () => {
     const { env, advance } = fakeEnv()

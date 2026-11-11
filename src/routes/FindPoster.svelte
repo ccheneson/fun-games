@@ -1,19 +1,20 @@
 <script lang="ts">
-  import { onDestroy, tick } from 'svelte'
+  import { onDestroy, tick, untrack } from 'svelte'
   import ContentPicker from '../components/ContentPicker.svelte'
-  import Poster from '../components/Poster.svelte'
   import { isTouchDevice } from '../lib/focus'
   import {
     BOARD,
     COLS,
+    blendView,
+    easeCss,
     FINAL_SIZE,
     ROWS,
     TILE_COUNT,
     cameraTransform,
-    finalWindow,
     moveSelection,
     pickBoard,
     revealView,
+    tileRect,
     viewAt,
     visibleTiles,
     type ArrowKey,
@@ -69,6 +70,8 @@
   let wrongPicks = $state<number[]>([])
   /** End of round: zoom back out to the whole wall. */
   let wholeWall = $state(false)
+  /** The next change of view (the player toggled the whole-wall view) glides instead of jumping. */
+  let glideNext = false
   let wrapW = $state(0)
   let wrapEl = $state<HTMLElement>()
   /** Page y of the top of the board (measured: header, scores, bar and title above it vary). */
@@ -78,6 +81,15 @@
   let innerHeight = $state(800)
   let nextEl = $state<HTMLButtonElement>()
   const tileEls: HTMLButtonElement[] = []
+  /** On-screen canvas: the current view of the wall, drawn at device-pixel size. */
+  let screenEl = $state<HTMLCanvasElement>()
+  /** The whole wall, painted once per board, at full and half resolution (off-screen). */
+  const wallHi = document.createElement('canvas')
+  const wallLo = document.createElement('canvas')
+  /** Bumped whenever the wall bitmaps change, to redraw the screen. */
+  let wallVersion = $state(0)
+  /** Decoded posters of the current board (null: not loaded yet, or failed). */
+  let posterImgs: (HTMLImageElement | null)[] = []
 
   const touch = isTouchDevice()
   let pool: Title[] | null = null
@@ -116,7 +128,145 @@
   )
   /** The board is laid out at its zoomed-in size and scaled down: posters stay sharp at the end. */
   const boardPx = $derived((side * BOARD) / FINAL_SIZE)
-  const cam = $derived(cameraTransform(view, side))
+  /**
+   * Rendering. The posters are painted once into an off-screen bitmap of the whole wall, and every frame
+   * the current view is drawn from it into a canvas the size of the square (device pixels, untransformed).
+   * Letting the browser scale the posters instead (CSS transform on <img>s or on one big canvas) makes
+   * Firefox round each poster, or the whole wall, to whole device pixels as the scale changes every
+   * frame: posters wobble against each other and the wall jerks. Here the browser never scales anything:
+   * canvas drawImage with a fractional source rect resamples smoothly.
+   * The tile <button>s above are transparent hit, focus and highlight targets moved by the transform.
+   */
+  const GLIDE_MS = 600
+  const DIM_MS = 300
+  const DIM_ALPHA = 0.65
+  const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches
+  /** rAF clock, ticking only while a glide or the end-of-round dimming is running. */
+  let clock = $state(0)
+  let glide = $state<{ from: Rect; to: Rect; t0: number } | null>(null)
+  let dimStart = $state<number | null>(null)
+  /** What is on screen: the view, or a glide between two views. */
+  const shown = $derived(glide ? blendView(glide.from, glide.to, easeCss((clock - glide.t0) / GLIDE_MS)) : view)
+  const dimAlpha = $derived(dimStart === null ? 0 : DIM_ALPHA * Math.min(1, Math.max(0, (clock - dimStart) / DIM_MS)))
+  let lastShown: Rect = FULL
+  let ticking = false
+  function tickUntilIdle() {
+    if (ticking) return
+    ticking = true
+    const loop = (t: number) => {
+      clock = t
+      const busy = (glide && t - glide.t0 < GLIDE_MS) || (dimStart !== null && t - dimStart < DIM_MS)
+      if (busy) requestAnimationFrame(loop)
+      else ticking = false
+    }
+    requestAnimationFrame(loop)
+  }
+
+  // A toggle glides from what is on screen to the new view; any other change of view is immediate.
+  $effect(() => {
+    const to = view
+    untrack(() => {
+      if (glideNext && !reducedMotion()) {
+        const t0 = performance.now()
+        clock = t0
+        glide = { from: lastShown, to, t0 }
+        tickUntilIdle()
+      } else glide = null
+      glideNext = false
+    })
+  })
+
+  // End of round: fade the other posters out.
+  $effect(() => {
+    if (!ended) {
+      dimStart = null
+      return
+    }
+    untrack(() => {
+      const now = performance.now()
+      clock = now
+      dimStart = reducedMotion() ? now - DIM_MS : now
+      tickUntilIdle()
+    })
+  })
+
+  const cam = $derived(cameraTransform(shown, side))
+  /** Wall bitmap px per board unit: enough for the final 3-column view to be pixel-sharp, capped in size. */
+  const MAX_WALL_PX = 4096
+  const wallUnit = $derived(
+    Math.max(1, Math.min(Math.floor(MAX_WALL_PX / BOARD), Math.ceil((side * devicePixelRatio) / FINAL_SIZE))),
+  )
+
+  /** Paint poster i into its cell of both wall bitmaps (object-fit: cover), or clear it (placeholder shows). */
+  function paintTile(i: number) {
+    for (const el of [wallHi, wallLo]) {
+      const ctx = el.getContext('2d')
+      if (!ctx || !el.width) continue
+      const u = el.width / BOARD
+      const r = tileRect(i)
+      const [x, y, w, h] = [r.x * u, r.y * u, r.w * u, r.h * u]
+      ctx.clearRect(x, y, w, h)
+      const img = posterImgs[i]
+      if (!img || !img.naturalWidth) continue
+      ctx.imageSmoothingQuality = 'high'
+      const k = Math.max(w / img.naturalWidth, h / img.naturalHeight)
+      const sw = w / k
+      const sh = h / k
+      ctx.drawImage(img, (img.naturalWidth - sw) / 2, (img.naturalHeight - sh) / 2, sw, sh, x, y, w, h)
+    }
+    wallVersion++
+  }
+
+  // (Re)size the wall bitmaps when the square or the pixel ratio changes, then repaint every poster.
+  $effect(() => {
+    const [hiPx, loPx] = [wallUnit * BOARD, Math.ceil(wallUnit / 2) * BOARD]
+    untrack(() => {
+      if (wallHi.width !== hiPx) wallHi.width = wallHi.height = hiPx
+      if (wallLo.width !== loPx) wallLo.width = wallLo.height = loPx
+      for (let i = 0; i < TILE_COUNT; i++) paintTile(i)
+    })
+  })
+
+  // Draw the view on screen (every frame while the camera moves).
+  $effect(() => {
+    const el = screenEl
+    const v = shown
+    const alpha = dimAlpha
+    const px = Math.round(side * devicePixelRatio)
+    void wallVersion
+    if (!el || px <= 0) return
+    untrack(() => drawScreen(el, v, alpha, px))
+  })
+
+  function drawScreen(el: HTMLCanvasElement, v: Rect, alpha: number, px: number) {
+    lastShown = v
+    if (el.width !== px) el.width = el.height = px
+    const ctx = el.getContext('2d')
+    if (!ctx) return
+    ctx.clearRect(0, 0, px, px)
+    // Use the half-resolution wall while the view is shown at or below its resolution: a bitmap is then
+    // never shrunk by more than 2x (more makes fine details shimmer as they move).
+    const src = px / v.size <= wallLo.width / BOARD ? wallLo : wallHi
+    const u = src.width / BOARD
+    if (u > 0) {
+      ctx.imageSmoothingEnabled = true
+      ctx.drawImage(src, v.x * u, v.y * u, v.size * u, v.size * u, 0, 0, px, px)
+    }
+    if (alpha > 0) {
+      // Dim every poster but the answer and the wrong picks, in one path (no seams between cells).
+      const k = px / v.size
+      ctx.beginPath()
+      for (let i = 0; i < TILE_COUNT; i++) {
+        if (i === target || wrongPicks.includes(i)) continue
+        const r = tileRect(i)
+        ctx.rect((r.x - v.x) * k, (r.y - v.y) * k, r.w * k, r.h * k)
+      }
+      ctx.globalAlpha = alpha
+      ctx.fillStyle = getComputedStyle(el.parentElement ?? el).backgroundColor
+      ctx.fill()
+      ctx.globalAlpha = 1
+    }
+  }
 
   // Re-measure where the board starts when what is above it may have changed (no layout reads per frame).
   $effect(() => {
@@ -145,20 +295,28 @@
   /** Each board attempt has its own token: late posters of an older attempt are not counted. */
   let attemptToken = 0
 
-  function preload(url: string, token: number): Promise<Loaded> {
+  /** Loads poster i of the current attempt and paints it on the wall when (and if) it arrives. */
+  function preload(url: string, i: number, token: number): Promise<Loaded> {
     return new Promise((resolve) => {
       const img = new Image()
       img.referrerPolicy = 'no-referrer'
       const timer = setTimeout(() => resolve('slow'), PRELOAD_CAP_MS)
-      const done = (r: Loaded) => {
+      const done = (ok: boolean) => {
         clearTimeout(timer)
-        if (token === attemptToken) loaded++
-        resolve(r)
+        if (token === attemptToken) {
+          loaded++
+          // A slow poster still shows up when it arrives (or becomes a placeholder if it fails).
+          if (ok) {
+            posterImgs[i] = img
+            paintTile(i)
+          } else broken[i] = true
+        }
+        resolve(ok ? 'ok' : 'fail')
       }
       img.src = url
       img.decode().then(
-        () => done('ok'),
-        () => done('fail'),
+        () => done(true),
+        () => done(false),
       )
     })
   }
@@ -177,6 +335,7 @@
     wonBy = null
     roundPoints = 0
     wholeWall = false
+    glideNext = false
     duration = settings.findTimerSeconds * 1000
     remaining = duration
     if (!pool || seenContent !== settings.content) {
@@ -197,7 +356,10 @@
       broken = Array(TILE_COUNT).fill(false)
       loaded = 0
       const token = ++attemptToken
-      const results = await Promise.all(board.tiles.map((t) => preload(t.posterUrl!, token)))
+      posterImgs = Array(TILE_COUNT).fill(null)
+      for (const el of [wallHi, wallLo]) el.getContext('2d')?.clearRect(0, 0, el.width, el.height)
+      wallVersion++
+      const results = await Promise.all(board.tiles.map((t, i) => preload(t.posterUrl!, i, token)))
       if (mine !== round) return
       broken = results.map((r) => r === 'fail')
       // The answer's poster must be loaded. If it isn't, keep the board and take another target among
@@ -211,7 +373,7 @@
         goal = from[Math.floor(Math.random() * from.length)]
       }
       target = goal
-      final = finalWindow(goal)
+      final = revealView(goal)
       played.add(board.tiles[goal].id)
       return start()
     }
@@ -424,6 +586,8 @@
     {/if}
   </div>
 
+  <div class="stage">
+  <div class="main">
   <div class="wrap" bind:this={wrapEl} bind:clientWidth={wrapW}>
     <div
       class="viewport"
@@ -435,10 +599,10 @@
         e.currentTarget.scrollTop = 0
       }}
     >
+      <canvas class="screen" class:hidden={phase === 'loading'} bind:this={screenEl} aria-hidden="true"></canvas>
       <div
         class="board"
         class:live={playing}
-        class:anim={ended}
         class:hidden={phase === 'loading'}
         class:ended
         role="group"
@@ -458,7 +622,6 @@
             class:sel={selected === i}
             class:target={ended && i === target}
             class:miss
-            class:dim={ended && i !== target && !miss}
             data-tile={i}
             bind:this={tileEls[i]}
             style:left="{((i % COLS) * 100) / COLS}%"
@@ -473,15 +636,6 @@
           >
             {#if broken[i]}
               <span class="ph" aria-hidden="true">🎬</span>
-            {:else}
-              <img
-                src={t.posterUrl}
-                alt=""
-                draggable="false"
-                loading="eager"
-                referrerpolicy="no-referrer"
-                onerror={() => (broken[i] = true)}
-              />
             {/if}
             {#if ended && i === target}
               <span class="badge ok" aria-hidden="true">✔</span>
@@ -510,6 +664,9 @@
     </div>
   {/if}
 
+  </div>
+
+  <div class="side">
   {#if ended && answer}
     <div class="result" class:ok={phase === 'found'} role="status">
       <p class="verdict">
@@ -520,11 +677,10 @@
             : "⏰ Time's up! 0 points"}
       </p>
       <p class="answer"><strong>{answer.title}</strong></p>
-      <button type="button" class="link" onclick={() => (wholeWall = !wholeWall)}>
+      <button type="button" class="link" onclick={() => { glideNext = true; wholeWall = !wholeWall }}>
         {wholeWall ? 'Zoom on the answer' : 'See the whole wall'}
       </button>
       <div class="reveal">
-        <Poster src={answer.posterUrl ?? null} alt={'Poster of ' + answer.title} />
         {#if answer.year || answer.stars?.length}
           <div class="cast">
             {#if answer.year}
@@ -549,6 +705,8 @@
     <button type="button" bind:this={nextEl} onclick={nextRound}>Next</button>
   </div>
   <p class="change"><button type="button" class="link" onclick={backToSetup}>Change players</button></p>
+  </div>
+  </div>
 {/if}
 
 <style>
@@ -594,6 +752,23 @@
   .title { font-size: clamp(1.2rem, 5vw, 1.8rem); font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
   .title .year { color: var(--muted); font-weight: 600; }
 
+  /* Square on the left; answer, Next and Change players on its right (stacked below on narrow screens). */
+  .stage { display: flex; flex-direction: column; gap: 0.5rem; }
+  .main { min-width: 0; }
+  .side { min-width: 0; }
+  @media (min-width: 800px) {
+    /* A bit wider than the 640px page column so the square can grow. */
+    .stage {
+      flex-direction: row; align-items: flex-start; gap: 1.25rem;
+      width: min(780px, 100vw - 3rem); position: relative; left: 50%; transform: translateX(-50%);
+    }
+    .main { flex: 1 1 0; }
+    .side { flex: 0 0 240px; }
+    .side .result { margin-top: 0; }
+    .side .actions { margin-top: 0.75rem; }
+    .side .reveal { flex-direction: column; }
+    .side .cast { text-align: center; }
+  }
   .wrap { width: 100%; display: flex; justify-content: center; }
   .viewport {
     position: relative;
@@ -614,23 +789,22 @@
     transform-origin: 0 0;
   }
   .board.live { will-change: transform; }
-  .board.anim { transition: transform 600ms ease; }
   .board.hidden { visibility: hidden; }
-  @media (prefers-reduced-motion: reduce) {
-    .board.anim { transition: none; }
-  }
+  /* The posters (drawn by script, see drawScreen); the tiles above are transparent targets. */
+  .screen { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+  .screen.hidden { visibility: hidden; }
   .tile {
     position: absolute;
     min-height: 0;
     padding: 0;
     border: 0;
     border-radius: 0;
-    background: var(--surface-2);
+    background: transparent;
     color: inherit;
     overflow: hidden;
     cursor: pointer;
-    transition: opacity 300ms;
   }
+
   /* Highlights: a border drawn over the poster, scaled up as the board is scaled down (--inv). */
   .tile::after {
     content: '';
@@ -639,8 +813,9 @@
     border: 0 solid var(--accent);
     pointer-events: none;
   }
-  .tile img { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
-  .ph { display: grid; place-items: center; height: 100%; font-size: calc(1.5rem * var(--inv)); opacity: 0.5; }
+  .ph { display: grid; place-items: center; height: 100%; font-size: calc(1.5rem * var(--inv)); opacity: 0.5; transition: opacity 300ms; }
+  /* End of round: placeholders fade with the other posters (those are dimmed in the canvas). */
+  .board.ended .tile:not(.target):not(.miss) .ph { opacity: 0.175; }
   .tile:focus-visible { outline: none; z-index: 1; }
   .tile:focus-visible::after { border-width: calc(3px * var(--inv)); border-style: dashed; }
   @media (hover: hover) {
@@ -650,7 +825,6 @@
   .tile.sel::after { border-width: calc(4px * var(--inv)); border-style: solid; }
   .tile.miss { z-index: 2; }
   .tile.miss::after { border-width: calc(4px * var(--inv)); border-style: solid; border-color: var(--danger); }
-  .tile.dim { opacity: 0.35; }
   .tile.target {
     box-shadow: 0 0 calc(18px * var(--inv)) calc(6px * var(--inv)) var(--accent);
     z-index: 3;
@@ -698,7 +872,6 @@
   .verdict { font-weight: 700; font-size: 1.3rem; }
   .answer { font-size: 1.1rem; overflow-wrap: anywhere; }
   .reveal { display: flex; gap: 1.25rem; align-items: center; justify-content: center; width: 100%; }
-  .reveal :global(.poster) { flex: 0 0 min(45%, 220px); margin-inline: 0; }
   .cast { text-align: left; }
   .cast h2 { font-size: 0.9rem; margin: 0 0 0.4rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
   .cast .year { margin: 0 0 1rem; font-size: 1.2rem; font-weight: 700; }

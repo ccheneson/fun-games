@@ -2,7 +2,7 @@ import { INTERNET_ENABLED } from './config'
 
 const KEY = 'fun-games:settings'
 const DEFAULT_TIMER = 10
-/** "Find the poster": scanning 54 posters needs more time than the other games. */
+/** "Find the poster": scanning 70 posters needs more time than the other games. */
 const DEFAULT_FIND_TIMER = 20
 export const MIN_TIMER = 3
 export const MAX_TIMER = 60

@@ -5,18 +5,23 @@ import { normalize } from '../text/normalize'
  * "Find the poster": a square wall of COLS x ROWS posters. All geometry is in board units
  * (a tile is TILE_W x TILE_H, the board BOARD x BOARD); the component multiplies by px per unit.
  */
-export const COLS = 9
-export const ROWS = 6
-export const TILE_W = 2
-export const TILE_H = 3
-/** Board side in units (= ROWS * TILE_H: 9 x 6 tiles of 2:3 make an exact square). */
+export const COLS = 10
+export const ROWS = 7
+/** A tile is 7:10 (posters are 2:3, cropped by ~5%): 10 x 7 of them make an exact square. */
+export const TILE_W = 7
+export const TILE_H = 10
+/** Board side in units (= ROWS * TILE_H = COLS * TILE_W). */
 export const BOARD = COLS * TILE_W
 export const TILE_COUNT = COLS * ROWS
 /** The final window is FINAL_COLS tiles wide... */
 export const FINAL_COLS = 3
-/** ...so FINAL_SIZE units, i.e. 2 rows high: 6 candidate posters at the end of the timer. */
+/** ...so FINAL_SIZE units, i.e. about 2 rows high: ~6 candidate posters at the end of the timer. */
 export const FINAL_SIZE = FINAL_COLS * TILE_W
-const FINAL_ROWS = FINAL_SIZE / TILE_H
+/** Round fraction at which the points drop to 40 (band 6 of 10)... */
+export const MID_FRACTION = 0.6
+/** ...where the view is MID_COLS tiles wide (6 posters across, 4 rows high). */
+export const MID_COLS = 6
+export const MID_SIZE = MID_COLS * TILE_W
 
 /** A square in board units. */
 export interface Rect { x: number; y: number; size: number }
@@ -63,36 +68,38 @@ export function tileRect(index: number): { x: number; y: number; w: number; h: n
 }
 
 /**
- * Random final window (FINAL_SIZE square, whole tiles) containing the target, inside the board.
- * Picked uniformly among every window position that contains the target, so the target can sit
- * in any of its cells and the centre of the zoom does not give the answer away (edges included).
- */
-export function finalWindow(target: number, rng: () => number = Math.random): Rect {
-  const col = target % COLS
-  const row = Math.floor(target / COLS)
-  const cLo = Math.max(0, col - FINAL_COLS + 1)
-  const cHi = Math.min(col, COLS - FINAL_COLS)
-  const rLo = Math.max(0, row - FINAL_ROWS + 1)
-  const rHi = Math.min(row, ROWS - FINAL_ROWS)
-  const nc = cHi - cLo + 1
-  const n = pick(nc * (rHi - rLo + 1), rng)
-  const c0 = cLo + (n % nc)
-  const r0 = rLo + Math.floor(n / nc)
-  return { x: c0 * TILE_W, y: r0 * TILE_H, size: FINAL_SIZE }
-}
-
-/**
- * View for a round fraction 0..1 (clamped; NaN = 0): from the full board to `final`. The size
- * shrinks geometrically and the position is the linear blend of both rects, so each view contains
+ * View for a round fraction 0..1 (clamped; NaN = 0): from the full board to `final`, passing a
+ * MID_COLS-wide view at 40 points (MID_FRACTION). The size shrinks geometrically in two legs and the position is the linear blend of both rects, so each view contains
  * every later one (the final window, hence the target, is always visible).
  */
 export function viewAt(fraction: number, final: Rect): Rect {
   const f = Number.isFinite(fraction) ? clamp(fraction, 0, 1) : 0
   if (f === 0) return { x: 0, y: 0, size: BOARD }
   if (f === 1) return { x: final.x, y: final.y, size: final.size }
-  const size = BOARD * Math.pow(final.size / BOARD, f)
+  const size = Math.exp(logSize(f, final.size))
   const k = BOARD === final.size ? 1 : (BOARD - size) / (BOARD - final.size)
   return { x: k * final.x, y: k * final.y, size }
+}
+
+/**
+ * ln(size) at round fraction f: a monotone cubic Hermite curve through (0, BOARD), (MID_FRACTION,
+ * MID_SIZE) and (1, final). The slope is continuous at 40 points, so the camera does not jolt there.
+ */
+function logSize(f: number, finalSize: number): number {
+  const y0 = Math.log(BOARD)
+  const y1 = Math.log(MID_SIZE)
+  const y2 = Math.log(finalSize)
+  const m1 = (y1 - y0) / MID_FRACTION
+  const m2 = (y2 - y1) / (1 - MID_FRACTION)
+  const mid = (2 * m1 * m2) / (m1 + m2) // harmonic mean: keeps the curve monotone
+  const [a, b, ya, yb, ma, mb, w] =
+    f <= MID_FRACTION
+      ? [0, MID_FRACTION, y0, y1, m1, mid, MID_FRACTION]
+      : [MID_FRACTION, 1, y1, y2, mid, m2, 1 - MID_FRACTION]
+  const t = (f - a) / (b - a)
+  const t2 = t * t
+  const t3 = t2 * t
+  return (2 * t3 - 3 * t2 + 1) * ya + (t3 - 2 * t2 + t) * w * ma + (-2 * t3 + 3 * t2) * yb + (t3 - t2) * w * mb
 }
 
 /** FINAL_SIZE window centred on the target (clamped in the board), for the end reveal. */
@@ -154,4 +161,26 @@ export function moveSelection(index: number, key: ArrowKey): number {
     case 'ArrowUp': return row > 0 ? index - COLS : index
     case 'ArrowDown': return row < ROWS - 1 ? index + COLS : index
   }
+}
+
+/** The view `p` (0..1, clamped) of the way from `from` to `to` (each coordinate blended linearly). */
+export function blendView(from: Rect, to: Rect, p: number): Rect {
+  const t = Number.isFinite(p) ? clamp(p, 0, 1) : 1
+  return { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t, size: from.size + (to.size - from.size) * t }
+}
+
+/** CSS `ease` (cubic-bezier(0.25, 0.1, 0.25, 1)) at time t (0..1, clamped). */
+export function easeCss(t: number): number {
+  const x = Number.isFinite(t) ? clamp(t, 0, 1) : 1
+  if (x === 0 || x === 1) return x
+  const bez = (a: number, b: number, u: number) => 3 * a * u * (1 - u) ** 2 + 3 * b * u * u * (1 - u) + u ** 3
+  // Solve bezX(u) = x by bisection (bezX is increasing), then return bezY(u).
+  let lo = 0
+  let hi = 1
+  for (let i = 0; i < 30; i++) {
+    const mid = (lo + hi) / 2
+    if (bez(0.25, 0.25, mid) < x) lo = mid
+    else hi = mid
+  }
+  return bez(0.1, 1, (lo + hi) / 2)
 }
