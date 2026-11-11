@@ -17,6 +17,13 @@ A small backend-less SPA (Svelte 5 + Vite + TypeScript) with a menu of games.
   poster is shown at the end. 1 or 2 players; movies, TV shows or both; French titles, non-French
   titles or both. The opposites are hand-curated in `src/lib/games/opposites/data.ts` (each entry
   points to a row of the IMDb / TV CSVs for its poster).
+- **Find the poster**: a square wall of 54 posters (9 x 6, uncropped) and one title; tap its poster.
+  As the timer runs down (default 20 s, configurable in Settings) the view zooms in towards the
+  answer, down to a window of 6 posters, and the points drop from 100 to 10. One pick per round: a
+  wrong pick scores 0 (with 2 players, that player is locked out and the other can still try). On
+  touch screens the first tap selects a poster and shows it bigger, a second tap (or "This one!")
+  confirms; on desktop a click confirms; arrow keys + Enter also work. The answer is highlighted at
+  the end. 1 or 2 players; movies, TV shows or both. Logic in `src/lib/games/findposter.ts`.
 
 Light and dark mode: the header button (🌙 / ☀️) switches theme; Settings → **Theme** also offers
 System (follows the device); Light is the default. The choice is stored in `localStorage` (`fun-games:theme`).

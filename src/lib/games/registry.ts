@@ -50,4 +50,12 @@ export const games: GameDef[] = [
     route: '/opposite-title',
     load: () => import('../../routes/GuessOpposite.svelte'),
   },
+  {
+    id: 'find-poster',
+    name: 'Find the poster',
+    description: 'A wall of posters and one title. Tap its poster: the view zooms in as time runs out, the sooner the more points.',
+    emoji: '🔍',
+    route: '/find-poster',
+    load: () => import('../../routes/FindPoster.svelte'),
+  },
 ]
