@@ -1,0 +1,186 @@
+import type { Title } from '../providers/types'
+import { normalize } from '../text/normalize'
+
+/**
+ * "Find the poster": a square wall of COLS x ROWS posters. All geometry is in board units
+ * (a tile is TILE_W x TILE_H, the board BOARD x BOARD); the component multiplies by px per unit.
+ */
+export const COLS = 10
+export const ROWS = 7
+/** A tile is 7:10 (posters are 2:3, cropped by ~5%): 10 x 7 of them make an exact square. */
+export const TILE_W = 7
+export const TILE_H = 10
+/** Board side in units (= ROWS * TILE_H = COLS * TILE_W). */
+export const BOARD = COLS * TILE_W
+export const TILE_COUNT = COLS * ROWS
+/** The final window is FINAL_COLS tiles wide... */
+export const FINAL_COLS = 3
+/** ...so FINAL_SIZE units, i.e. about 2 rows high: ~6 candidate posters at the end of the timer. */
+export const FINAL_SIZE = FINAL_COLS * TILE_W
+/** Round fraction at which the points drop to 40 (band 6 of 10)... */
+export const MID_FRACTION = 0.6
+/** ...where the view is MID_COLS tiles wide (6 posters across, 4 rows high). */
+export const MID_COLS = 6
+export const MID_SIZE = MID_COLS * TILE_W
+
+/** A square in board units. */
+export interface Rect { x: number; y: number; size: number }
+/** The posters in grid order (row by row); `target` is the index of the one to find. */
+export interface Board { tiles: Title[]; target: number }
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
+const pick = (n: number, rng: () => number) => Math.min(n - 1, Math.floor(rng() * n))
+
+/**
+ * `count` distinct titles (by normalized title) with a poster, one of them the target, avoiding
+ * `exclude` ids as target when possible. null if fewer than `count` candidates. Input untouched.
+ */
+export function pickBoard(titles: Title[], count: number, exclude: Set<string>, rng: () => number = Math.random): Board | null {
+  const seen = new Set<string>()
+  const pool: Title[] = []
+  for (const t of titles) {
+    if (!t.posterUrl) continue
+    const key = normalize(t.title)
+    if (seen.has(key)) continue
+    seen.add(key)
+    pool.push(t)
+  }
+  if (count <= 0 || pool.length < count) return null
+
+  const eligible = pool.filter((t) => !exclude.has(t.id))
+  const from = eligible.length > 0 ? eligible : pool
+  const target = from[pick(from.length, rng)]
+
+  // Partial Fisher-Yates on the others: the first count - 1 are the rest of the board.
+  const rest = pool.filter((t) => t !== target)
+  for (let i = 0; i < count - 1; i++) {
+    const j = i + pick(rest.length - i, rng)
+    ;[rest[i], rest[j]] = [rest[j], rest[i]]
+  }
+  const tiles = rest.slice(0, count - 1)
+  const at = pick(count, rng)
+  tiles.splice(at, 0, target)
+  return { tiles, target: at }
+}
+
+export function tileRect(index: number): { x: number; y: number; w: number; h: number } {
+  return { x: (index % COLS) * TILE_W, y: Math.floor(index / COLS) * TILE_H, w: TILE_W, h: TILE_H }
+}
+
+/**
+ * View for a round fraction 0..1 (clamped; NaN = 0): from the full board to `final`, passing a
+ * MID_COLS-wide view at 40 points (MID_FRACTION). The size shrinks geometrically in two legs and the position is the linear blend of both rects, so each view contains
+ * every later one (the final window, hence the target, is always visible).
+ */
+export function viewAt(fraction: number, final: Rect): Rect {
+  const f = Number.isFinite(fraction) ? clamp(fraction, 0, 1) : 0
+  if (f === 0) return { x: 0, y: 0, size: BOARD }
+  if (f === 1) return { x: final.x, y: final.y, size: final.size }
+  const size = Math.exp(logSize(f, final.size))
+  const k = BOARD === final.size ? 1 : (BOARD - size) / (BOARD - final.size)
+  return { x: k * final.x, y: k * final.y, size }
+}
+
+/**
+ * ln(size) at round fraction f: a monotone cubic Hermite curve through (0, BOARD), (MID_FRACTION,
+ * MID_SIZE) and (1, final). The slope is continuous at 40 points, so the camera does not jolt there.
+ */
+function logSize(f: number, finalSize: number): number {
+  const y0 = Math.log(BOARD)
+  const y1 = Math.log(MID_SIZE)
+  const y2 = Math.log(finalSize)
+  const m1 = (y1 - y0) / MID_FRACTION
+  const m2 = (y2 - y1) / (1 - MID_FRACTION)
+  const mid = (2 * m1 * m2) / (m1 + m2) // harmonic mean: keeps the curve monotone
+  const [a, b, ya, yb, ma, mb, w] =
+    f <= MID_FRACTION
+      ? [0, MID_FRACTION, y0, y1, m1, mid, MID_FRACTION]
+      : [MID_FRACTION, 1, y1, y2, mid, m2, 1 - MID_FRACTION]
+  const t = (f - a) / (b - a)
+  const t2 = t * t
+  const t3 = t2 * t
+  return (2 * t3 - 3 * t2 + 1) * ya + (t3 - 2 * t2 + t) * w * ma + (-2 * t3 + 3 * t2) * yb + (t3 - t2) * w * mb
+}
+
+/** FINAL_SIZE window centred on the target (clamped in the board), for the end reveal. */
+export function revealView(target: number): Rect {
+  const r = tileRect(target)
+  const max = BOARD - FINAL_SIZE
+  return {
+    x: clamp(r.x + r.w / 2 - FINAL_SIZE / 2, 0, max),
+    y: clamp(r.y + r.h / 2 - FINAL_SIZE / 2, 0, max),
+    size: FINAL_SIZE,
+  }
+}
+
+/**
+ * CSS numbers for a view. The board element is laid out at its zoomed-in size
+ * (viewportPx * BOARD / FINAL_SIZE px) and scaled down: `transform-origin: 0 0;
+ * transform: scale(scale) translate(-tx px, -ty px)`.
+ */
+export function cameraTransform(view: Rect, viewportPx: number): { scale: number; tx: number; ty: number } {
+  const unitPx = viewportPx / FINAL_SIZE
+  return { scale: FINAL_SIZE / view.size, tx: view.x * unitPx, ty: view.y * unitPx }
+}
+
+/** Tile under a point of the viewport (px from its top-left corner), or null outside the board. */
+export function tileAt(px: number, py: number, view: Rect, viewportPx: number): number | null {
+  if (!(viewportPx > 0)) return null
+  const k = view.size / viewportPx
+  const ux = view.x + px * k
+  const uy = view.y + py * k
+  if (!(ux >= 0 && uy >= 0 && ux <= BOARD && uy <= BOARD)) return null
+  const col = Math.min(COLS - 1, Math.floor(ux / TILE_W))
+  const row = Math.min(ROWS - 1, Math.floor(uy / TILE_H))
+  return row * COLS + col
+}
+
+const EPS = 1e-9
+
+/** Indices of the tiles at least partly inside the view (merely touching its edge does not count). */
+export function visibleTiles(view: Rect): number[] {
+  const out: number[] = []
+  for (let i = 0; i < TILE_COUNT; i++) {
+    const r = tileRect(i)
+    if (r.x < view.x + view.size - EPS && r.x + r.w > view.x + EPS && r.y < view.y + view.size - EPS && r.y + r.h > view.y + EPS) {
+      out.push(i)
+    }
+  }
+  return out
+}
+
+export type ArrowKey = 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight'
+
+/** Arrow-key navigation in the grid, clamped at the edges (no wrapping across rows). */
+export function moveSelection(index: number, key: ArrowKey): number {
+  const col = index % COLS
+  const row = Math.floor(index / COLS)
+  switch (key) {
+    case 'ArrowLeft': return col > 0 ? index - 1 : index
+    case 'ArrowRight': return col < COLS - 1 ? index + 1 : index
+    case 'ArrowUp': return row > 0 ? index - COLS : index
+    case 'ArrowDown': return row < ROWS - 1 ? index + COLS : index
+  }
+}
+
+/** The view `p` (0..1, clamped) of the way from `from` to `to` (each coordinate blended linearly). */
+export function blendView(from: Rect, to: Rect, p: number): Rect {
+  const t = Number.isFinite(p) ? clamp(p, 0, 1) : 1
+  return { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t, size: from.size + (to.size - from.size) * t }
+}
+
+/** CSS `ease` (cubic-bezier(0.25, 0.1, 0.25, 1)) at time t (0..1, clamped). */
+export function easeCss(t: number): number {
+  const x = Number.isFinite(t) ? clamp(t, 0, 1) : 1
+  if (x === 0 || x === 1) return x
+  const bez = (a: number, b: number, u: number) => 3 * a * u * (1 - u) ** 2 + 3 * b * u * u * (1 - u) + u ** 3
+  // Solve bezX(u) = x by bisection (bezX is increasing), then return bezY(u).
+  let lo = 0
+  let hi = 1
+  for (let i = 0; i < 30; i++) {
+    const mid = (lo + hi) / 2
+    if (bez(0.25, 0.25, mid) < x) lo = mid
+    else hi = mid
+  }
+  return bez(0.1, 1, (lo + hi) / 2)
+}

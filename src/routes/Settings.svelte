@@ -80,6 +80,19 @@
 </section>
 
 <section>
+  <label for="find-timer">Find the poster: timer per round (seconds)</label>
+  <input
+    id="find-timer"
+    type="number"
+    min={MIN_TIMER}
+    max={MAX_TIMER}
+    value={settings.findTimerSeconds}
+    onchange={(e) => settings.setFindTimer(e.currentTarget.valueAsNumber)}
+  />
+  <small>Between {MIN_TIMER} and {MAX_TIMER}. Applies from the next round.</small>
+</section>
+
+<section>
   <span class="label" id="lang-label">Titles (Opposite title)</span>
   <div class="choices" role="radiogroup" aria-labelledby="lang-label">
     {#each langs as l (l.id)}
