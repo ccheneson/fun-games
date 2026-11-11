@@ -3,6 +3,7 @@ import {
   BOARD,
   COLS,
   FINAL_COLS,
+  FINAL_MARGIN,
   FINAL_SIZE,
   MID_FRACTION,
   MID_SIZE,
@@ -13,6 +14,7 @@ import {
   blendView,
   cameraTransform,
   easeCss,
+  finalWindow,
   moveSelection,
   pickBoard,
   revealView,
@@ -210,16 +212,104 @@ describe('tileAt', () => {
   })
 })
 
-/** The zoom ends on the reveal view, centred on the target. */
-const finalWindow = (t: number, _rng?: () => number) => revealView(t)
-
 describe('final window', () => {
-  it('is a FINAL_SIZE square inside the board that contains the target tile, for every target', () => {
+  const FEPS = 1e-9
+  const maxDy = (FINAL_SIZE - TILE_H) / 2 - FINAL_MARGIN
+
+  it('is a FINAL_SIZE square inside the board that contains the target tile, for every target and seed', () => {
     for (let target = 0; target < TILE_COUNT; target++) {
-      const w = finalWindow(target)
-      expect(w.size).toBe(FINAL_SIZE)
-      expect(inside(w, FULL)).toBe(true)
-      expect(containsTile(w, target)).toBe(true)
+      for (let seed = 1; seed <= 20; seed++) {
+        const w = finalWindow(target, seeded(seed))
+        expect(w.size).toBe(FINAL_SIZE)
+        expect(inside(w, FULL)).toBe(true)
+        expect(containsTile(w, target)).toBe(true)
+      }
+      const d = finalWindow(target)
+      expect(d.size).toBe(FINAL_SIZE)
+      expect(inside(d, FULL)).toBe(true)
+      expect(containsTile(d, target)).toBe(true)
+    }
+  })
+  it('keeps FINAL_MARGIN vertically when not clamped, and contains the tile horizontally', () => {
+    let checked = 0
+    for (let target = 0; target < TILE_COUNT; target++) {
+      const r = tileRect(target)
+      for (let seed = 1; seed <= 20; seed++) {
+        const w = finalWindow(target, seeded(seed))
+        // horizontally the outer margin may be 0: only containment is required
+        expect(r.x).toBeGreaterThanOrEqual(w.x - FEPS)
+        expect(r.x + r.w).toBeLessThanOrEqual(w.x + w.size + FEPS)
+        if (w.y <= FEPS || w.y >= BOARD - FINAL_SIZE - FEPS) continue
+        checked++
+        expect(r.y - w.y).toBeGreaterThanOrEqual(FINAL_MARGIN - FEPS)
+        expect(w.y + w.size - (r.y + r.h)).toBeGreaterThanOrEqual(FINAL_MARGIN - FEPS)
+      }
+    }
+    expect(checked).toBeGreaterThan(0)
+  })
+  it('shows 3 whole tile columns when not clamped horizontally', () => {
+    let checked = 0
+    for (let target = 0; target < TILE_COUNT; target++) {
+      for (let seed = 1; seed <= 20; seed++) {
+        const w = finalWindow(target, seeded(seed))
+        if (w.x <= FEPS || w.x >= BOARD - FINAL_SIZE - FEPS) continue
+        checked++
+        const col0 = Math.round(w.x / TILE_W)
+        expect(w.x).toBeCloseTo(col0 * TILE_W, 9)
+        for (let c = col0; c < col0 + FINAL_COLS; c++) {
+          const x0 = c * TILE_W
+          expect(x0).toBeGreaterThanOrEqual(w.x - FEPS)
+          expect(x0 + TILE_W).toBeLessThanOrEqual(w.x + w.size + FEPS)
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(0)
+  })
+  it('is deterministic for a given rng and differs between seeds', () => {
+    const t = 3 * COLS + 4
+    expect(finalWindow(t, seeded(5))).toEqual(finalWindow(t, seeded(5)))
+    const seen = new Set<string>()
+    for (let seed = 1; seed <= 20; seed++) {
+      const w = finalWindow(t, seeded(seed))
+      seen.add(`${w.x.toFixed(6)},${w.y.toFixed(6)}`)
+    }
+    expect(seen.size).toBeGreaterThan(1)
+  })
+  it('is not always centred: horizontal offset is -TILE_W, 0 or +TILE_W, on both sides', () => {
+    const t = 3 * COLS + 4
+    const r = tileRect(t)
+    const rng = seeded(42)
+    const dxs = new Set<number>()
+    for (let i = 0; i < 200; i++) {
+      const w = finalWindow(t, rng)
+      const dx = w.x + w.size / 2 - (r.x + r.w / 2)
+      const dy = w.y + w.size / 2 - (r.y + r.h / 2)
+      const k = Math.round(dx / TILE_W)
+      expect([-1, 0, 1]).toContain(k)
+      expect(dx).toBeCloseTo(k * TILE_W, 9)
+      expect(Math.abs(dy)).toBeLessThanOrEqual(maxDy + FEPS)
+      dxs.add(k)
+    }
+    expect(dxs.has(-1)).toBe(true)
+    expect(dxs.has(0)).toBe(true)
+    expect(dxs.has(1)).toBe(true)
+  })
+  it('handles extreme rng values (0, ~1, 1)', () => {
+    for (const v of [0, 0.999999, 1]) {
+      for (let target = 0; target < TILE_COUNT; target++) {
+        const w = finalWindow(target, () => v)
+        expect(w.size).toBe(FINAL_SIZE)
+        expect(inside(w, FULL)).toBe(true)
+        expect(containsTile(w, target)).toBe(true)
+      }
+    }
+  })
+  it('viewAt towards it contains the target for the whole zoom, for all targets', () => {
+    for (let t = 0; t < TILE_COUNT; t++) {
+      const w = finalWindow(t, seeded(t + 100))
+      for (let i = 0; i <= 20; i++) {
+        expect(containsTile(viewAt(i / 20, w), t)).toBe(true)
+      }
     }
   })
 })

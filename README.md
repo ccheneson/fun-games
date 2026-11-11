@@ -19,7 +19,8 @@ A small backend-less SPA (Svelte 5 + Vite + TypeScript) with a menu of games.
   points to a row of the IMDb / TV CSVs for its poster).
 - **Find the poster**: a square wall of 70 posters (10 x 7) and one title; tap its poster.
   As the timer runs down (default 20 s, configurable in Settings) the view zooms in towards the
-  answer, down to a window of 6 posters, and the points drop from 100 to 10. One pick per round: a
+  answer, down to a window 3 posters wide and about 2 high (the answer is not always the middle
+  one), and the points drop from 100 to 10. One pick per round: a
   wrong pick scores 0 (with 2 players, that player is locked out and the other can still try). On
   touch screens the first tap selects a poster and shows it bigger, a second tap (or "This one!")
   confirms; on desktop a click confirms; arrow keys + Enter also work. The answer is highlighted at

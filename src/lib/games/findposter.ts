@@ -104,11 +104,28 @@ function logSize(f: number, finalSize: number): number {
 
 /** FINAL_SIZE window centred on the target (clamped in the board), for the end reveal. */
 export function revealView(target: number): Rect {
+  return finalWindow(target, () => 0.5)
+}
+
+/** Vertical margin (board units) the target keeps from the top and bottom of the final window. */
+export const FINAL_MARGIN = 1
+
+/**
+ * The round's final window: FINAL_SIZE, clamped in the board, holding the whole target tile, at a
+ * random offset from centred so the answer is not always the middle poster. Horizontally the shift
+ * is a whole tile (-TILE_W, 0 or +TILE_W): 3 whole columns stay visible, the answer in the left,
+ * middle or right one. Vertically it is continuous, keeping FINAL_MARGIN from the top and bottom
+ * when the board allows it. Two rng calls (x, then y); rng = () => 0.5 gives the centred window.
+ */
+export function finalWindow(target: number, rng: () => number = Math.random): Rect {
   const r = tileRect(target)
   const max = BOARD - FINAL_SIZE
+  const maxDy = (FINAL_SIZE - TILE_H) / 2 - FINAL_MARGIN
+  const dx = (pick(3, () => clamp(rng(), 0, 1)) - 1) * TILE_W
+  const dy = (2 * clamp(rng(), 0, 1) - 1) * maxDy
   return {
-    x: clamp(r.x + r.w / 2 - FINAL_SIZE / 2, 0, max),
-    y: clamp(r.y + r.h / 2 - FINAL_SIZE / 2, 0, max),
+    x: clamp(r.x + r.w / 2 - FINAL_SIZE / 2 + dx, 0, max),
+    y: clamp(r.y + r.h / 2 - FINAL_SIZE / 2 + dy, 0, max),
     size: FINAL_SIZE,
   }
 }
