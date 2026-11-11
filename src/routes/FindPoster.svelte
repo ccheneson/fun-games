@@ -11,6 +11,7 @@
     ROWS,
     TILE_COUNT,
     cameraTransform,
+    finalWindow,
     moveSelection,
     pickBoard,
     revealView,
@@ -70,7 +71,7 @@
   let wrongPicks = $state<number[]>([])
   /** End of round: zoom back out to the whole wall. */
   let wholeWall = $state(false)
-  /** The next change of view (the player toggled the whole-wall view) glides instead of jumping. */
+  /** The next change of view (whole-wall toggle, or the timeout reveal) glides instead of jumping. */
   let glideNext = false
   let wrapW = $state(0)
   let wrapEl = $state<HTMLElement>()
@@ -162,7 +163,7 @@
     requestAnimationFrame(loop)
   }
 
-  // A toggle glides from what is on screen to the new view; any other change of view is immediate.
+  // A toggle or the timeout reveal glides from what is on screen to the new view; any other change is immediate.
   $effect(() => {
     const to = view
     untrack(() => {
@@ -373,7 +374,7 @@
         goal = from[Math.floor(Math.random() * from.length)]
       }
       target = goal
-      final = revealView(goal)
+      final = finalWindow(goal)
       played.add(board.tiles[goal].id)
       return start()
     }
@@ -394,6 +395,8 @@
     if (phase !== 'playing') return
     stopTimer?.()
     selected = null
+    // Timeout: glide from the (offset) final window to the centred reveal. A pick jumps.
+    if (result === 'timeout') glideNext = true
     phase = result
     score.played++
     if (result === 'found') {

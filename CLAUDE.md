@@ -44,7 +44,8 @@ npm run build    # static build in dist/
    non-French or both. Opposites are hand-curated in `src/lib/games/opposites/data.ts`.
 - **Find the poster** (`FindPoster.svelte`, logic in `findposter.ts`): a square wall of 70 posters (10 x 7) and
    one title; pick its poster. As the timer runs down (default 20 s) the view zooms towards the answer (6 posters
-   wide at 40 points, 3 wide at the end, centred on the answer); points drop from 100 to 10. One pick per round
+   wide at 40 points, 3 whole columns wide at the end, the answer in a random one of them and a bit higher or lower
+   (`finalWindow`); on timeout the view then glides to centre on it); points drop from 100 to 10. One pick per round
    (with 2 players a wrong pick locks that player out). Touch: first tap selects and previews, second tap or
    "This one!" confirms; desktop: a click; arrow keys + Enter work. A pick jumps straight to the answer, which is
    highlighted (others dimmed). The wall is drawn into a canvas (not 70 scaled `<img>`s) so posters do not jitter
