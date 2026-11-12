@@ -22,6 +22,10 @@ export const MID_FRACTION = 0.6
 /** ...where the view is MID_COLS tiles wide (6 posters across, 4 rows high). */
 export const MID_COLS = 6
 export const MID_SIZE = MID_COLS * TILE_W
+/** Round fraction at which the points drop to 50: until then the zoom is slow and steady... */
+export const SLOW_FRACTION = 0.5
+/** ...reaching SLOW_SIZE units (about 7 posters wide); it speeds up afterwards. */
+export const SLOW_SIZE = 50
 
 /** A square in board units. */
 export interface Rect { x: number; y: number; size: number }
@@ -68,9 +72,10 @@ export function tileRect(index: number): { x: number; y: number; w: number; h: n
 }
 
 /**
- * View for a round fraction 0..1 (clamped; NaN = 0): from the full board to `final`, passing a
- * MID_COLS-wide view at 40 points (MID_FRACTION). The size shrinks geometrically in two legs and the position is the linear blend of both rects, so each view contains
- * every later one (the final window, hence the target, is always visible).
+ * View for a round fraction 0..1 (clamped; NaN = 0): from the full board to `final`. The zoom is
+ * slow and steady until 50 points (SLOW_FRACTION, SLOW_SIZE), then faster, passing a MID_COLS-wide
+ * view at 40 points (MID_FRACTION). The size shrinks strictly and the position is the linear blend of
+ * both rects, so each view contains every later one (the final window, hence the target, is always visible).
  */
 export function viewAt(fraction: number, final: Rect): Rect {
   const f = Number.isFinite(fraction) ? clamp(fraction, 0, 1) : 0
@@ -81,25 +86,32 @@ export function viewAt(fraction: number, final: Rect): Rect {
   return { x: k * final.x, y: k * final.y, size }
 }
 
-/**
- * ln(size) at round fraction f: a monotone cubic Hermite curve through (0, BOARD), (MID_FRACTION,
- * MID_SIZE) and (1, final). The slope is continuous at 40 points, so the camera does not jolt there.
- */
-function logSize(f: number, finalSize: number): number {
-  const y0 = Math.log(BOARD)
-  const y1 = Math.log(MID_SIZE)
-  const y2 = Math.log(finalSize)
-  const m1 = (y1 - y0) / MID_FRACTION
-  const m2 = (y2 - y1) / (1 - MID_FRACTION)
-  const mid = (2 * m1 * m2) / (m1 + m2) // harmonic mean: keeps the curve monotone
-  const [a, b, ya, yb, ma, mb, w] =
-    f <= MID_FRACTION
-      ? [0, MID_FRACTION, y0, y1, m1, mid, MID_FRACTION]
-      : [MID_FRACTION, 1, y1, y2, mid, m2, 1 - MID_FRACTION]
-  const t = (f - a) / (b - a)
+/** Cubic Hermite on [a, b] from (a, ya) with slope ma to (b, yb) with slope mb, at f. */
+function hermite(ya: number, yb: number, ma: number, mb: number, a: number, b: number, f: number): number {
+  const w = b - a
+  const t = (f - a) / w
   const t2 = t * t
   const t3 = t2 * t
   return (2 * t3 - 3 * t2 + 1) * ya + (t3 - 2 * t2 + t) * w * ma + (-2 * t3 + 3 * t2) * yb + (t3 - t2) * w * mb
+}
+
+/**
+ * ln(size) at round fraction f: a C1 piecewise cubic Hermite curve through (0, BOARD),
+ * (SLOW_FRACTION, SLOW_SIZE), (MID_FRACTION, MID_SIZE) and (1, final). The first leg is linear in
+ * log (a steady, slow zoom until 50 points), the last one too (a steady, faster zoom after 40 points),
+ * and the middle leg ramps between both rates. The slope is continuous at every knot (no jolt) and the
+ * curve is monotone (both rates are within 3x the middle leg's secant, Fritsch-Carlson).
+ */
+function logSize(f: number, finalSize: number): number {
+  const y0 = Math.log(BOARD)
+  const y1 = Math.log(SLOW_SIZE)
+  const y2 = Math.log(MID_SIZE)
+  const y3 = Math.log(finalSize)
+  const m1 = (y1 - y0) / SLOW_FRACTION
+  const m2 = (y3 - y2) / (1 - MID_FRACTION)
+  if (f <= SLOW_FRACTION) return hermite(y0, y1, m1, m1, 0, SLOW_FRACTION, f)
+  if (f <= MID_FRACTION) return hermite(y1, y2, m1, m2, SLOW_FRACTION, MID_FRACTION, f)
+  return hermite(y2, y3, m2, m2, MID_FRACTION, 1, f)
 }
 
 /** FINAL_SIZE window centred on the target (clamped in the board), for the end reveal. */
