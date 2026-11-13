@@ -26,7 +26,6 @@ import {
   visibleTiles,
   type Rect,
 } from '../src/lib/games/findposter'
-import { pointsAt } from '../src/lib/games/points'
 import { normalize } from '../src/lib/text/normalize'
 import type { Title } from '../src/lib/providers/types'
 
@@ -347,16 +346,16 @@ describe('viewAt', () => {
       expect(s).toBeLessThan(prev)
       prev = s
     }
-    // between the full board and the 40-point view
-    expect(viewAt(0.5, w).size).toBeGreaterThan(MID_SIZE)
+    // between the full board and the slow knot view
+    expect(viewAt(0.5, w).size).toBeGreaterThan(SLOW_SIZE)
     expect(viewAt(0.5, w).size).toBeLessThan(BOARD)
   })
-  it('shows a 6-tile-wide view at 40 points (60% of the round)', () => {
+  it('passes MID_SIZE at MID_FRACTION (75% of the round)', () => {
     const w = finals[1].w
+    expect(MID_FRACTION).toBe(0.75)
     expect(viewAt(MID_FRACTION, w).size).toBeCloseTo(MID_SIZE, 9)
-    expect(MID_SIZE).toBe(6 * TILE_W)
   })
-  describe('slow zoom until 50 points, faster afterwards', () => {
+  describe('slow zoom until 35, faster afterwards', () => {
     const cases: { name: string; w: Rect }[] = [
       ...finals.map(({ t, w }) => ({ name: `target ${t}`, w })),
       { name: 'custom rect', w: { x: 0, y: 0, size: FINAL_SIZE } },
@@ -364,13 +363,13 @@ describe('viewAt', () => {
     const ln = (f: number, w: Rect) => Math.log(viewAt(f, w).size)
     const rate = (f: number, w: Rect, h = 1e-4) => (ln(f - h, w) - ln(f + h, w)) / (2 * h)
 
-    it('defines the slow knot at 50 points', () => {
-      expect(SLOW_FRACTION).toBe(0.5)
-      expect(SLOW_SIZE).toBe(50)
-      expect(pointsAt(SLOW_FRACTION)).toBe(50)
+    it('defines the slow knot at 35 points', () => {
+      expect(SLOW_FRACTION).toBe(0.65)
+      expect(SLOW_SIZE).toBe(45)
+      expect(100 * (1 - SLOW_FRACTION)).toBeCloseTo(35, 9)
       for (const { w } of cases) expect(viewAt(SLOW_FRACTION, w).size).toBeCloseTo(SLOW_SIZE, 6)
     })
-    it('zooms at least 2x slower in the first half than in the second', () => {
+    it('zooms at least 2x slower until the knot than after it', () => {
       for (const { w } of cases) {
         const s = viewAt(SLOW_FRACTION, w).size
         const first = Math.log(BOARD / s) / SLOW_FRACTION
@@ -378,29 +377,38 @@ describe('viewAt', () => {
         expect(first * 2).toBeLessThanOrEqual(second)
       }
     })
-    it('has done less than 30% of the log zoom at 50 points (was 34%)', () => {
+    it('has done less than 40% of the log zoom at the knot and less than 30% at 50%', () => {
       for (const { w } of cases) {
-        const s = viewAt(0.5, w).size
-        const progress = (Math.log(BOARD) - Math.log(s)) / (Math.log(BOARD) - Math.log(FINAL_SIZE))
-        expect(progress).toBeLessThan(0.3)
+        const done = (f: number) => (Math.log(BOARD) - Math.log(viewAt(f, w).size)) / (Math.log(BOARD) - Math.log(FINAL_SIZE))
+        expect(done(SLOW_FRACTION)).toBeLessThan(0.4)
+        expect(done(0.5)).toBeLessThan(0.3)
       }
     })
-    it('zooms steadily (geometric sizes) from 100 to 50 points', () => {
+    it('zooms steadily (geometric sizes) from 100 to 35 points', () => {
       for (const { w } of cases) {
-        const sizes = [0, 1, 2, 3, 4, 5].map((i) => viewAt(i / 10, w).size)
+        const sizes = Array.from({ length: 13 }, (_, i) => viewAt(i * 0.05, w).size)
         const ratio = sizes[1] / sizes[0]
         for (let i = 1; i < sizes.length; i++) expect(sizes[i] / sizes[i - 1]).toBeCloseTo(ratio, 6)
+        expect(viewAt(SLOW_FRACTION, w).size / sizes[sizes.length - 1]).toBeCloseTo(ratio, 6)
       }
     })
-    it('zooms faster after 50 points than in the first leg', () => {
+    it('zooms faster after the knot than in the first leg', () => {
       for (const { w } of cases) {
         const r1 = Math.log(BOARD / SLOW_SIZE) / SLOW_FRACTION
-        for (let i = 51; i <= 99; i++) {
+        for (let i = 66; i <= 99; i++) {
           const f = i / 100
           const r = rate(f, w)
           expect(r).toBeGreaterThanOrEqual(r1 - 1e-3)
-          if (f >= 0.55) expect(r).toBeGreaterThan(r1 + 1e-3)
+          if (f >= 0.7) expect(r).toBeGreaterThan(r1 + 1e-3)
         }
+      }
+    })
+    it('zooms at a constant, at least 3x faster rate from MID_FRACTION to the end', () => {
+      for (const { w } of cases) {
+        const r1 = Math.log(BOARD / SLOW_SIZE) / SLOW_FRACTION
+        const r0 = rate(MID_FRACTION + 0.01, w)
+        expect(r0).toBeGreaterThanOrEqual(3 * r1)
+        for (let i = 76; i <= 99; i++) expect(rate(i / 100, w)).toBeCloseTo(r0, 3)
       }
     })
     it('has no jolt at the knots (continuous log-rate)', () => {
