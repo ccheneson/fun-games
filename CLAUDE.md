@@ -42,12 +42,12 @@ npm run build    # static build in dist/
    opposites ("Le Roi Lion" -> "Le Valet Agneau"); type the real title. Points drop from 100 to 10 over the timer
    (default 10 s); the poster is shown at the end. 1 or 2 players; movies, TV shows or both; French titles,
    non-French or both. Opposites are hand-curated in `src/lib/games/opposites/data.ts`.
-- **Find the poster** (`FindPoster.svelte`, logic in `findposter.ts`): a square wall of 70 posters (10 x 7) and
+- **Find the poster** (`FindPoster.svelte`, logic in `findposter.ts`): a square wall of 108 posters (12 x 9) and
    one title; pick its poster. As the timer runs down (default 20 s) the view zooms towards the answer (slowly and
-   steadily until 50 points, faster afterwards; 6 posters wide at 40 points, 3 whole columns wide at the end, the
+   steadily until 35 points, i.e. 65% of the round, about 7 posters wide, faster afterwards; 3 whole columns wide at the end, the
    answer in a random one of them and a bit higher or lower (`finalWindow`); on timeout the view then glides to
    centre on it); points drop from 100 to 10. One pick per round (with 2 players a wrong pick locks that player
    out). Touch: first tap selects and previews, second tap or "This one!" confirms; desktop: a click; arrow keys +
    Enter work. A pick jumps straight to the answer, which is highlighted (others dimmed). The wall is drawn into a
-   canvas (not 70 scaled `<img>`s) so posters do not jitter in Firefox; the tile buttons on top are transparent
+   canvas (not 108 scaled `<img>`s) so posters do not jitter in Firefox; the tile buttons on top are transparent
    hit/focus targets.

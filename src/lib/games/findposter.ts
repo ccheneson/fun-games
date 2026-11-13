@@ -5,11 +5,11 @@ import { normalize } from '../text/normalize'
  * "Find the poster": a square wall of COLS x ROWS posters. All geometry is in board units
  * (a tile is TILE_W x TILE_H, the board BOARD x BOARD); the component multiplies by px per unit.
  */
-export const COLS = 10
-export const ROWS = 7
-/** A tile is 7:10 (posters are 2:3, cropped by ~5%): 10 x 7 of them make an exact square. */
-export const TILE_W = 7
-export const TILE_H = 10
+export const COLS = 12
+export const ROWS = 9
+/** A tile is 3:4 (posters are 2:3, cropped by ~11%): 12 x 9 of them make an exact square. */
+export const TILE_W = 6
+export const TILE_H = 8
 /** Board side in units (= ROWS * TILE_H = COLS * TILE_W). */
 export const BOARD = COLS * TILE_W
 export const TILE_COUNT = COLS * ROWS
@@ -17,15 +17,20 @@ export const TILE_COUNT = COLS * ROWS
 export const FINAL_COLS = 3
 /** ...so FINAL_SIZE units, i.e. about 2 rows high: ~6 candidate posters at the end of the timer. */
 export const FINAL_SIZE = FINAL_COLS * TILE_W
-/** Round fraction at which the points drop to 40 (band 6 of 10)... */
-export const MID_FRACTION = 0.6
-/** ...where the view is MID_COLS tiles wide (6 posters across, 4 rows high). */
-export const MID_COLS = 6
-export const MID_SIZE = MID_COLS * TILE_W
-/** Round fraction at which the points drop to 50: until then the zoom is slow and steady... */
-export const SLOW_FRACTION = 0.5
+/**
+ * Round fraction of the "35 points" mark (on the 100 -> 0 scale over the round, i.e. 35% of the
+ * time left): until then the zoom is slow and steady...
+ */
+export const SLOW_FRACTION = 0.65
 /** ...reaching SLOW_SIZE units (about 7 posters wide); it speeds up afterwards. */
-export const SLOW_SIZE = 50
+export const SLOW_SIZE = 43
+/** Round fraction at which the speed-up ramp ends: from there to the end the zoom is steady and faster... */
+export const MID_FRACTION = 0.75
+/**
+ * ...from a view of MID_SIZE units (6 posters wide). Chosen so the ramp leg is about quadratic,
+ * i.e. the zoom rate ramps up smoothly from the slow rate to the fast one.
+ */
+export const MID_SIZE = 36
 
 /** A square in board units. */
 export interface Rect { x: number; y: number; size: number }
@@ -73,8 +78,8 @@ export function tileRect(index: number): { x: number; y: number; w: number; h: n
 
 /**
  * View for a round fraction 0..1 (clamped; NaN = 0): from the full board to `final`. The zoom is
- * slow and steady until 50 points (SLOW_FRACTION, SLOW_SIZE), then faster, passing a MID_COLS-wide
- * view at 40 points (MID_FRACTION). The size shrinks strictly and the position is the linear blend of
+ * slow and steady until 35 points (SLOW_FRACTION, 65% of the round, SLOW_SIZE), ramps up until 75%
+ * (MID_FRACTION, MID_SIZE), then steady and faster to the end. The size shrinks strictly and the position is the linear blend of
  * both rects, so each view contains every later one (the final window, hence the target, is always visible).
  */
 export function viewAt(fraction: number, final: Rect): Rect {
@@ -98,8 +103,8 @@ function hermite(ya: number, yb: number, ma: number, mb: number, a: number, b: n
 /**
  * ln(size) at round fraction f: a C1 piecewise cubic Hermite curve through (0, BOARD),
  * (SLOW_FRACTION, SLOW_SIZE), (MID_FRACTION, MID_SIZE) and (1, final). The first leg is linear in
- * log (a steady, slow zoom until 50 points), the last one too (a steady, faster zoom after 40 points),
- * and the middle leg ramps between both rates. The slope is continuous at every knot (no jolt) and the
+ * log (a steady, slow zoom until 35 points, 65% of the round), the last one too (a steady, faster zoom
+ * from 75% to the end), and the middle leg ramps between both rates. The slope is continuous at every knot (no jolt) and the
  * curve is monotone (both rates are within 3x the middle leg's secant, Fritsch-Carlson).
  */
 function logSize(f: number, finalSize: number): number {
