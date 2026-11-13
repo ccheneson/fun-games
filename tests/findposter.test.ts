@@ -76,10 +76,10 @@ function containsTile(view: { x: number; y: number; size: number }, index: numbe
 }
 
 describe('constants', () => {
-  it('makes a square board of 70 tiles', () => {
+  it('makes a square board of 108 tiles', () => {
     expect(COLS * TILE_W).toBe(ROWS * TILE_H)
     expect(BOARD).toBe(COLS * TILE_W)
-    expect(TILE_COUNT).toBe(70)
+    expect(TILE_COUNT).toBe(108)
     expect(TILE_COUNT).toBe(COLS * ROWS)
   })
   it('has a final window 3 cols wide (about 2 rows high)', () => {
@@ -365,7 +365,7 @@ describe('viewAt', () => {
 
     it('defines the slow knot at 35 points', () => {
       expect(SLOW_FRACTION).toBe(0.65)
-      expect(SLOW_SIZE).toBe(45)
+      expect(SLOW_SIZE).toBe(43)
       expect(100 * (1 - SLOW_FRACTION)).toBeCloseTo(35, 9)
       for (const { w } of cases) expect(viewAt(SLOW_FRACTION, w).size).toBeCloseTo(SLOW_SIZE, 6)
     })
@@ -493,21 +493,21 @@ describe('cameraTransform', () => {
 })
 
 describe('visibleTiles', () => {
-  it('returns all 70 tiles for the full view', () => {
+  it('returns all 108 tiles for the full view', () => {
     const v = visibleTiles(FULL)
     expect(v).toHaveLength(TILE_COUNT)
     expect([...v].sort((a, b) => a - b)).toEqual(Array.from({ length: TILE_COUNT }, (_, i) => i))
   })
   it('returns exactly the tiles of a tile-aligned window', () => {
-    // x 14..34 = cols 2,3,4 ; y 10..30 = rows 1,2
-    const v = visibleTiles({ x: 14, y: 10, size: 20 })
-    expect([...v].sort((a, b) => a - b)).toEqual([12, 13, 14, 22, 23, 24])
+    // x 12..28 = cols 2,3,4 ; y 8..24 = rows 1,2
+    const v = visibleTiles({ x: 12, y: 8, size: 16 })
+    expect([...v].sort((a, b) => a - b)).toEqual([14, 15, 16, 26, 27, 28])
   })
   it('includes partly visible tiles and excludes merely touching ones', () => {
-    const v = visibleTiles({ x: 15, y: 10, size: 20 }) // x 15..35: col 2 (14..21) is partly visible
-    expect(v).toContain(12)
+    const v = visibleTiles({ x: 13, y: 8, size: 16 }) // x 13..29: col 2 (12..18) is partly visible
     expect(v).toContain(14)
-    expect(v).not.toContain(11) // col 1 ends at 14 < 15
+    expect(v).toContain(16)
+    expect(v).not.toContain(13) // col 1 ends at 12 < 13
   })
   it('always includes the target for a final window', () => {
     for (let t = 0; t < TILE_COUNT; t++) {

@@ -17,7 +17,7 @@ A small backend-less SPA (Svelte 5 + Vite + TypeScript) with a menu of games.
   poster is shown at the end. 1 or 2 players; movies, TV shows or both; French titles, non-French
   titles or both. The opposites are hand-curated in `src/lib/games/opposites/data.ts` (each entry
   points to a row of the IMDb / TV CSVs for its poster).
-- **Find the poster**: a square wall of 70 posters (10 x 7) and one title; tap its poster.
+- **Find the poster**: a square wall of 108 posters (12 x 9) and one title; tap its poster.
   As the timer runs down (default 20 s, configurable in Settings) the view zooms in towards the
   answer (slowly at first, then faster), down to a window 3 posters wide and about 2 high (the
   answer is not always the middle one), and the points drop from 100 to 10. One pick per round: a

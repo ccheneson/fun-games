@@ -5,11 +5,11 @@ import { normalize } from '../text/normalize'
  * "Find the poster": a square wall of COLS x ROWS posters. All geometry is in board units
  * (a tile is TILE_W x TILE_H, the board BOARD x BOARD); the component multiplies by px per unit.
  */
-export const COLS = 10
-export const ROWS = 7
-/** A tile is 7:10 (posters are 2:3, cropped by ~5%): 10 x 7 of them make an exact square. */
-export const TILE_W = 7
-export const TILE_H = 10
+export const COLS = 12
+export const ROWS = 9
+/** A tile is 3:4 (posters are 2:3, cropped by ~11%): 12 x 9 of them make an exact square. */
+export const TILE_W = 6
+export const TILE_H = 8
 /** Board side in units (= ROWS * TILE_H = COLS * TILE_W). */
 export const BOARD = COLS * TILE_W
 export const TILE_COUNT = COLS * ROWS
@@ -22,15 +22,15 @@ export const FINAL_SIZE = FINAL_COLS * TILE_W
  * time left): until then the zoom is slow and steady...
  */
 export const SLOW_FRACTION = 0.65
-/** ...reaching SLOW_SIZE units (about 6.4 posters wide); it speeds up afterwards. */
-export const SLOW_SIZE = 45
+/** ...reaching SLOW_SIZE units (about 7 posters wide); it speeds up afterwards. */
+export const SLOW_SIZE = 43
 /** Round fraction at which the speed-up ramp ends: from there to the end the zoom is steady and faster... */
 export const MID_FRACTION = 0.75
 /**
- * ...from a view of MID_SIZE units (5.5 posters wide). Chosen so the ramp leg is about quadratic,
+ * ...from a view of MID_SIZE units (6 posters wide). Chosen so the ramp leg is about quadratic,
  * i.e. the zoom rate ramps up smoothly from the slow rate to the fast one.
  */
-export const MID_SIZE = 38.5
+export const MID_SIZE = 36
 
 /** A square in board units. */
 export interface Rect { x: number; y: number; size: number }
