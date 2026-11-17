@@ -8,6 +8,10 @@ A small backend-less SPA (Svelte 5 + Vite + TypeScript) with a menu of games.
   line by line from the top, line by line from the bottom (both with a blur), or **mosaic** (the
   whole poster in big square tiles that shrink slowly; it is only nearly sharp in the last points
   band). 1 or 2 players; choose movies, TV shows or both.
+- **Country map game**: one game per country on the menu (e.g. France, Tahiti). Drag the names of
+  5 cities, monuments, culinary specialties or rivers onto their place on the map; each placement
+  shows a fun fact. Countries are data only (`src/lib/countries/<id>/`); logic in
+  `src/lib/games/places.ts`.
 - **Guess the title**: a French movie title is shown with its vowels replaced by `_`
   (accented vowels count as their base vowel). Type your guess before the timer
   (default 10 s, configurable in Settings) hits 0. Then the full title and poster are shown.
